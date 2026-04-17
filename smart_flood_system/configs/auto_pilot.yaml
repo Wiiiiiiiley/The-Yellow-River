@@ -1,0 +1,101 @@
+# AutoPilot Configuration
+# ========================
+# Fully autonomous "Collect-Train-Evolve" closed-loop system
+
+# Module 1: Auto-Downloader
+download:
+  schedule:
+    hour: 2      # 2:00 AM daily
+    minute: 0
+  
+  apis:
+    - hydrology      # Yellow River hydrological stations
+    - meteorology    # Weather data
+  
+  retry_attempts: 3
+  archive_dir: "data/archive/"
+  
+  # API endpoints (configure with actual endpoints)
+  api_endpoints:
+    hydrology: "https://api.yellowriver.gov/hydrology/v1"
+    meteorology: "https://api.weather.gov.cn/yellow-river"
+
+# Module 2: Auto-Trainer
+training:
+  trigger_days: 7              # Trigger after 7 days of new data
+  historical_buffer_days: 30  # Keep 30 days history
+  buffer_ratio: 0.2           # 20% historical samples
+  
+  learning_rate: 0.0001       # Low LR for fine-tuning
+  epochs: 100
+  batch_size: 32
+  
+  # Personality preservation
+  freeze_layers: 2            # Freeze bottom 2 layers
+  feature_columns:
+    - flow_rate
+    - rainfall
+    - temperature
+    - sin_year
+    - cos_year
+    - sin_season
+    - cos_season
+    - is_flood_season
+    - sin_hour
+    - cos_hour
+
+# Module 3: Self-Evolution
+evolution:
+  physics_residual_threshold: 0.1
+  improvement_threshold: 0.05    # 5% improvement required
+  auto_hp_search: true
+  
+  # Physical parameter search space
+  hp_search_space:
+    n_manning: [0.025, 0.035]    # Roughness coefficient
+    S0_bed_slope: [0.0005, 0.002] # Bed slope
+    B_width: [40.0, 60.0]        # Channel width
+  
+  # Model promotion criteria
+  promotion_criteria:
+    physics_improved: true
+    val_loss_improved: true
+    min_epochs: 50
+
+# Module 4: Auto-Dashboard
+dashboard:
+  report_interval_hours: 24
+  streamlit_port: 8501
+  
+  # Report templates
+  report_sections:
+    - evolution_summary
+    - physics_personality_trends
+    - learning_statistics
+    - model_lineage
+    - physical_parameters
+
+# System Settings
+system:
+  model_dir: "models/autopilot/"
+  log_dir: "logs/"
+  report_dir: "reports/evolution/"
+  
+  # Async settings
+  max_concurrent_jobs: 3
+  job_timeout_seconds: 3600
+  
+  # Health monitoring
+  health_check_interval_minutes: 5
+  disk_space_threshold_gb: 5.0
+  
+  # Notification
+  notifications:
+    on_evolution: true
+    on_error: true
+    on_promotion: true
+    
+    channels:
+      - log
+      - email      # Configure SMTP
+      - webhook    # Configure endpoint

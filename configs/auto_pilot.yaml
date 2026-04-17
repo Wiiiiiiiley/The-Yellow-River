@@ -1,0 +1,21 @@
+dashboard:
+  report_interval_hours: 24
+  streamlit_port: 8501
+download:
+  apis:
+  - hydrology
+  - meteorology
+  archive_dir: data/archive/
+  retry_attempts: 3
+  schedule:
+    hour: 2
+    minute: 0
+evolution:
+  auto_hp_search: true
+  physics_residual_threshold: 0.1
+  validation_improvement_threshold: 0.05
+training:
+  epochs: 100
+  historical_buffer_days: 30
+  learning_rate: 0.0001
+  trigger_days: 7

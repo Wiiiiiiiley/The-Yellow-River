@@ -1,0 +1,18 @@
+{
+  "data_path": "data/processed/train.csv",
+  "epochs": 100,
+  "batch_size": 32,
+  "lr": 0.001,
+  "lambda_phys": 0.0,
+  "alpha": 0.1,
+  "hidden_dim": 64,
+  "num_layers": 4,
+  "activation": "swish",
+  "save_dir": "models/baseline",
+  "seed": 42,
+  "test_ratio": 0.2,
+  "early_stop": 15,
+  "timestamp": "20260417_101109",
+  "device": "cpu",
+  "total_params": 33602
+}
