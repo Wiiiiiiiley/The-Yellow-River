@@ -1,81 +1,85 @@
-# Smart Yellow River Flood Management System (SYRFMS)
+# 智慧黄河防汛决策系统 v2.0
 
-**智慧黄河防汛决策系统** - An end-to-end intelligent flood prevention and control system integrating GNN-Transformer prediction, Physics-Informed Neural Networks (PINN), and Reinforcement Learning for optimal discharge control.
+**Smart Yellow River Flood Management System (SYRFMS)** —— 端到端智能防洪控制系统，集成 GNN-Transformer 预测、物理信息神经网络 (PINN) 和强化学习，实现最优泄洪调度。
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## 🌊 System Architecture
+---
+
+## 🌊 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    SMART FLOOD MANAGEMENT SYSTEM v2.0                   │
+│                    智慧黄河防汛决策系统 v2.0                             │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Layer 1: Data Adapter ⭐ NEW                                           │
-│  ├── Multi-Source Integration (SQLite / CSV / API / Simulation)         │
-│  ├── 5-Station Yellow River Network (兰州→花园口)                       │
-│  ├── Real-time Status & Alert Calculation                               │
-│  └── Automatic Fallback to Realistic Simulation                         │
+│  第一层：数据适配器 ⭐ 新增                                               │
+│  ├── 多源数据集成（SQLite / CSV / API / 模拟数据）                        │
+│  ├── 5 站点黄河网络（兰州 → 河口镇 → 龙门 → 三门峡 → 花园口）            │
+│  ├── 实时状态与警报计算                                                   │
+│  └── 自动回退到真实感模拟                                                 │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Layer 2: Spatio-Temporal Engine                                        │
-│  ├── GNN (Graph Neural Networks) - River Topology Modeling            │
-│  ├── Transformer/Informer - Long-range Temporal Dependencies          │
-│  └── Multi-Step Sequence Prediction                                   │
+│  第二层：时空引擎                                                        │
+│  ├── GNN（图神经网络）- 河流拓扑建模                                       │
+│  ├── Transformer/Informer - 长程时间依赖性                                 │
+│  └── 多步序列预测                                                        │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Layer 3: Physics Constraints (PINN)                                  │
-│  ├── Saint-Venant Continuity Equation: ∂h/∂t + ∂(hu)/∂x = 0           │
-│  ├── Momentum Equation: ∂u/∂t + u·∂u/∂x = g·∂h/∂x - friction + g·S0   │
-│  └── Adaptive Weighting with Curriculum Learning                        │
+│  第三层：物理约束（PINN）                                                  │
+│  ├── 圣维南方程连续性：∂h/∂t + ∂(hu)/∂x = 0                              │
+│  ├── 动量方程：∂u/∂t + u·∂u/∂x = g·∂h/∂x - friction + g·S0               │
+│  └── 自适应权重与课程学习                                                   │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Layer 4: Multi-Model Verification                                    │
-│  ├── Ensemble Cross-Verification                                        │
-│  ├── Divergence Hotspot Detection                                       │
-│  └── Confidence-Based Reliability Assessment                          │
+│  第四层：多模型验证                                                       │
+│  ├── 集成交叉验证                                                         │
+│  ├── 分歧热点检测                                                         │
+│  └── 基于置信度的可靠性评估                                                │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Layer 5: RL Controller (PPO)                                         │
-│  ├── State: Water Levels, Inflow, Forecasts                             │
-│  ├── Action: Optimal Discharge Scheduling                             │
-│  ├── Reward: Safety Margin - Operational Cost                         │
-│  └── Fast Hydraulic Simulator for Training                            │
+│  第五层：RL 控制器（PPO）                                                   │
+│  ├── 状态：水位、入流、预报                                                │
+│  ├── 动作：最优泄洪调度                                                     │
+│  ├── 奖励：安全裕度 - 运营成本                                             │
+│  └── 快速水力仿真训练                                                      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Layer 6: AutoPilot - Autonomous Lifecycle ⭐ NEW                       │
-│  ├── Auto-Downloader: Daily 2 AM data fetch                           │
-│  ├── Auto-Trainer: 7-day incremental learning trigger               │
-│  ├── Self-Evolution: Physics calibration & model promotion            │
-│  └── Backtrack Validator: Monthly regression testing (2021 flood)     │
+│  第六层：AutoPilot - 自主生命周期 ⭐ 新增                                  │
+│  ├── 自动下载器：每日凌晨 2 点获取数据                                      │
+│  ├── 自动训练器：7 天触发增量学习                                          │
+│  ├── 自我进化：物理校准与模型晋升                                          │
+│  └── 回溯验证器：每月回归测试（2021 洪水）                                  │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Output: Dashboard v2 - Autonomous Command Center ⭐ NEW                │
-│  ├── System Status Sidebar (Model version, API status)                │
-│  ├── Evolution Trajectory Charts                                        │
-│  ├── Multimodal Monitoring (Water/Sediment/Vision/RL)               │
-│  ├── Real-time 5s Refresh Mode                                        │
-│  └── CLI Monitor for Headless Operation                               │
+│  输出：Dashboard v2 - 自主指挥中心 ⭐ 新增                                  │
+│  ├── 系统状态边栏（模型版本、API 状态）                                     │
+│  ├── 进化轨迹图表                                                         │
+│  ├── 多模态监控（水沙/视觉/RL）                                            │
+│  ├── 实时 5 秒刷新模式                                                    │
+│  └── CLI 监控器用于无界面操作                                              │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 📁 Project Structure
+---
+
+## 📁 项目结构
 
 ```
 smart_flood_system/
 ├── main_system.py              # 系统主入口
-├── auto_pilot.py               # 全自动生命周期管理 ⭐ NEW
-├── api_agent.py                # 自动数据下载 ⭐ NEW
-├── learning_manager.py         # 自动增量学习 ⭐ NEW
-├── self_evolution.py           # 自动物理校准 ⭐ NEW
-├── auto_dashboard.py           # 自动报告生成 ⭐ NEW
-├── backtrack_validator.py      # 数字回溯/防遗忘 ⭐ NEW
-├── evolution_engine.py         # 自主进化引擎 ⭐ NEW
-├── vision_intelligence.py      # 多模态CV智能 ⭐ NEW
-├── data_adapter.py             # 统一数据接入层 ⭐ NEW
-├── monitor.py                  # CLI 状态监控 ⭐ NEW
+├── auto_pilot.py               # 全自动生命周期管理 ⭐ 新增
+├── api_agent.py                # 自动数据下载 ⭐ 新增
+├── learning_manager.py         # 自动增量学习 ⭐ 新增
+├── self_evolution.py           # 自动物理校准 ⭐ 新增
+├── auto_dashboard.py           # 自动报告生成 ⭐ 新增
+├── backtrack_validator.py      # 数字回溯/防遗忘 ⭐ 新增
+├── evolution_engine.py         # 自主进化引擎 ⭐ 新增
+├── vision_intelligence.py      # 多模态CV智能 ⭐ 新增
+├── data_adapter.py             # 统一数据接入层 ⭐ 新增
+├── monitor.py                  # CLI 状态监控 ⭐ 新增
 ├── configs/
 │   ├── system_config.yaml      # 完整配置
-│   ├── evolution_config.yaml   # 进化引擎配置 ⭐ NEW
-│   └── auto_pilot.yaml         # AutoPilot配置 ⭐ NEW
+│   ├── evolution_config.yaml   # 进化引擎配置 ⭐ 新增
+│   └── auto_pilot.yaml         # AutoPilot配置 ⭐ 新增
 ├── data/
 │   ├── archive/                # 历史数据存储
-│   └── autopilot.db            # SQLite 实时数据库 ⭐ NEW
+│   └── autopilot.db            # SQLite 实时数据库 ⭐ 新增
 ├── models/
 │   ├── autopilot/              # AutoPilot 模型存储
 │   ├── graph_transformer/
@@ -90,408 +94,427 @@ smart_flood_system/
 │   └── ensemble_verifier.py    # 多模型核验
 ├── app/
 │   ├── dashboard.py            # 基础 Streamlit面板
-│   └── dashboard_v2.py         # 自主管理仪表板 ⭐ NEW
-└── README.md                   # 完整文档
+│   └── dashboard_v2.py         # 自主管理仪表板 ⭐ 新增
+└── README_CN.md                # 中文文档
 ```
 
-## 🚀 Quick Start
+---
 
-### Installation
+## 🚀 快速开始
+
+### 安装依赖
 
 ```bash
-# Clone repository
+# 进入项目目录
 cd /Users/winniemei/CascadeProjects/黄河
 
-# Install dependencies
-pip install torch torch-geometric gym numpy pandas pyyaml streamlit
+# 安装依赖
+pip install torch torch-geometric gym numpy pandas pyyaml streamlit plotly
 
-# Additional dependencies for production
+# 生产环境额外依赖
 pip install torch-scatter torch-sparse torch-cluster -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+
+# AutoPilot 依赖
+pip install apscheduler optuna aiohttp
 ```
 
-### Running the System
+### 运行系统
 
 ```bash
-# 1. Full system (inference + dashboard)
+# 1. 完整系统（推理 + 仪表板）
 python smart_flood_system/main_system.py --mode full --config smart_flood_system/configs/system_config.yaml
 
-# 2. Training mode
+# 2. 训练模式
 python smart_flood_system/main_system.py --mode train --config smart_flood_system/configs/system_config.yaml
 
-# 3. Inference only
+# 3. 仅推理
 python smart_flood_system/main_system.py --mode inference --test-data data/processed/test.csv
 
-# 4. Dashboard only
+# 4. 基础仪表板
 python smart_flood_system/main_system.py --mode dashboard --dashboard-port 8501
 
-# 5. New: Autonomous Smart Management Dashboard (Recommended)
+# 5. 新版：自主管理仪表板（推荐）
 streamlit run smart_flood_system/app/dashboard_v2.py --server.port 8501
 
-# 6. New: CLI Monitor (view AutoPilot status without GUI)
+# 6. 新版：CLI 监控器（无界面查看状态）
 python smart_flood_system/monitor.py
 ```
 
-### Using the Batch Experiment Script
+### 运行批量实验
 
 ```bash
-# Make executable and run all experiments
+# 执行所有实验
 chmod +x run_experiments.sh
 ./run_experiments.sh
 
-# This will train:
-# - PINN_SOTA: Full physics + L-BFGS + Attention
-# - Baseline: Pure data-driven (λ=0)
-# - Sensitive_n: n=0.05 sensitivity test
+# 这将训练：
+# - PINN_SOTA: 完整物理 + L-BFGS + 注意力
+# - Baseline: 纯数据驱动（λ=0）
+# - Sensitive_n: n=0.05 敏感性测试
 ```
 
-### Yellow River Personality Training
+### 黄河个性训练
 
 ```bash
-# 1. Generate 10-year synthetic dataset
+# 1. 生成 10 年合成数据集
 python scripts/generate_10year_data.py --output data/yellow_river_10year.csv --add-extremes
 
-# 2. Train with personality learning (two-stage optimization)
+# 2. 个性学习训练（两阶段优化）
 python scripts/train_v2_personality.py \
     --data data/yellow_river_10year.csv \
     --epochs 1000 \
     --lbfgs-iter 200 \
     --save-dir models/pinn_personality
 
-# 3. Visualize "big water brings big sand" characteristics
+# 3. 可视化"大水大沙"特征
 python scripts/visualize_personality.py \
     --model models/pinn_personality/*/yellow_river_personality.pt \
     --output-dir results/personality
 ```
 
-The visualization generates:
-- **personality_big_water_big_sand.png**: Flow-sediment relationship verification
-- **personality_hysteresis.png**: Sediment lag behind flow peaks
-- **personality_seasonal.png**: Sin/cos encoding effectiveness
-- **personality_report.txt**: Quantitative assessment
+可视化生成：
+- **personality_big_water_big_sand.png**: 流量-含沙量关系验证
+- **personality_hysteresis.png**: 泥沙滞后于洪峰
+- **personality_seasonal.png**: Sin/cos 编码效果
+- **personality_report.txt**: 定量评估报告
 
-### Consensus Verification
+### 多模型共识验证
 
 ```bash
-# Multi-model cross-verification
+# 多模型交叉验证
 python scripts/verify_consensus.py \
     --model-dir models/pinn_v2/ \
     --generate-demo
 ```
 
-### 🤖 AutoPilot: Fully Autonomous System
+### 🤖 AutoPilot：全自主系统
 
 ```bash
-# Start the complete autonomous lifecycle
+# 启动完整自主生命周期
 python smart_flood_system/auto_pilot.py --mode full
 
-# Manual trigger evolution (for testing)
+# 手动触发进化（测试用）
 python smart_flood_system/auto_pilot.py --trigger-evolution
 ```
 
-**Autonomous Workflow:**
+**自主工作流：**
 ```
-2:00 AM  →  Auto-Downloader fetches yesterday's data
+凌晨 2:00 → Auto-Downloader 获取昨日数据
     ↓
-Accumulate →  7 days of data triggers training
+累积 → 7 天数据触发训练
     ↓
-Training   →  Incremental learning (20% historical buffer)
+训练   → 增量学习（20% 历史缓冲区）
     ↓
-Evolution  →  Physics residual check + model promotion
+进化   → 物理残差检查 + 模型晋升
     ↓
-8:00 AM  →  Auto-Report generation (evolution_report.md)
+上午 8:00 → 自动生成报告（evolution_report.md）
     ↓
-Dashboard  →  Streamlit shows Gen-X, trends, lineage
+仪表板  → Streamlit 显示世代、趋势、谱系
 ```
 
-**Configuration** (`configs/auto_pilot.yaml`):
+**配置**（`configs/auto_pilot.yaml`）：
 ```yaml
 download:
-  schedule: {hour: 2, minute: 0}  # 2 AM daily
+  schedule: {hour: 2, minute: 0}  # 每日凌晨 2 点
 training:
-  trigger_days: 7              # Train every 7 days
+  trigger_days: 7              # 每 7 天训练一次
 evolution:
-  physics_residual_threshold: 0.1  # Promote if < 0.1
+  physics_residual_threshold: 0.1  # < 0.1 则晋升
 ```
 
-## 🔬 Research Value & T20 Statement Material
+---
 
-### Key Research Contributions
+## 🔬 研究价值与 T20 文书素材
 
-1. **Physics-Informed Deep Learning for Hydrology**
-   > "I integrated Saint-Venant shallow water equations as soft constraints within a Graph-Transformer architecture, ensuring predictions remain physically consistent even under extreme extrapolation conditions."
+### 核心研究贡献
 
-2. **Multi-Model Consensus Verification**
-   > "Recognizing single-model bias, I developed an ensemble cross-verification system that quantifies prediction uncertainty through inter-model divergence analysis. This creates a dynamic confidence index critical for disaster prevention."
+1. **物理信息深度学习用于水文学**
+   > "我将圣维南方程作为软约束整合到 Graph-Transformer 架构中，确保预测在极端外推条件下仍保持物理一致性。"
 
-3. **RL-Based Optimal Control**
-   > "I formulated flood control as a reinforcement learning problem, training PPO agents to learn optimal discharge policies that balance flood risk minimization with operational efficiency."
+2. **多模型共识验证**
+   > "认识到单一模型存在偏见，我开发了集成交叉验证系统，通过模型间分歧分析量化预测不确定性，创建了灾难预防至关重要的动态置信度指数。"
 
-4. **Sensitivity Analysis for Physical Parameters**
-   > "I quantified how riverbed geometry uncertainties (slope S₀ and width B) propagate through the physics-informed model, identifying operational regimes requiring enhanced calibration."
+3. **基于 RL 的最优控制**
+   > "我将防洪控制建模为强化学习问题，训练 PPO 智能体学习最优泄洪策略，平衡防洪风险最小化与运行效率。"
 
-5. **Yellow River Personality Learning**
-   > "I designed a specialized training pipeline that captures the intrinsic 'personality' of Yellow River hydrology through seasonal sin/cos encoding, non-linear feature crossing for the 'big water brings big sand' relationship, and Exner erosion dynamics. The two-stage optimization (Adam + L-BFGS) ensures the model learns both statistical patterns and physical laws, achieving physics residuals below 0.1."
+4. **物理参数敏感性分析**
+   > "我量化了河床几何不确定性（坡度 S₀ 和宽度 B）如何在物理信息模型中传播，识别需要增强校准的运行区间。"
 
-6. **Autonomous Evolution Engine**
-   > "I implemented a closed-loop self-improvement system that continuously monitors prediction errors, automatically calibrates physics parameters when residuals rise, and triggers incremental learning on accumulated hard examples. This creates a living AI that evolves with the river, improving its extreme-condition handling without human intervention."
+5. **黄河个性学习**
+   > "我设计了专门的训练流程，通过季节 sin/cos 编码、Q×S 非线性特征交叉捕捉"大水大沙"关系、Exner 侵蚀动力学，捕捉黄河水文的内在"个性"。两阶段优化（Adam + L-BFGS）确保模型同时学习统计模式和物理规律，实现物理残差低于 0.1。"
 
-7. **Multimodal Vision Intelligence**
-   > "I developed a multimodal perception system that fuses drone imagery analysis with real-time hydrological sensors. By combining Vision Transformer-based anomaly detection with LLM-powered diagnostic reasoning, the system can automatically detect structural vulnerabilities and trigger emergency protocols when visual and sensor evidence jointly indicate imminent breach risk."
+6. **自主进化引擎**
+   > "我实现了闭环自我改进系统，持续监控预测误差，当残差上升时自动校准物理参数，并在累积的困难样本上触发增量学习。这创造了一个随河流进化的活体 AI，无需人工干预即可提升极端条件处理能力。"
 
-8. **AutoPilot: Fully Autonomous Lifecycle**
-   > "I engineered a complete 'Collect-Train-Evolve' autonomous framework using APScheduler to orchestrate daily data downloads, weekly incremental learning with personality preservation, physics-aware model promotion through A/B testing, and automatic report generation. This creates a self-sustaining AI ecosystem that operates 24/7 without human intervention, continuously adapting to the evolving Yellow River hydrology."
+7. **多模态视觉智能**
+   > "我开发了融合无人机图像分析与实时水文传感器的多模态感知系统。通过结合 Vision Transformer 异常检测与 LLM 诊断推理，系统能自动检测结构脆弱性，并在视觉和传感器证据共同表明即将溃堤时触发紧急协议。"
 
-9. **Digital Backtrack: Regression Prevention**
-   > "I implemented a monthly regression testing mechanism that evaluates evolved models against the 2021 extreme flood baseline, detecting catastrophic forgetting before it impacts operational capability. This 'digital backtrack' ensures the system truly gets smarter over time rather than 'robbing Peter to pay Paul' through destructive interference in incremental learning."
+8. **AutoPilot：全自主生命周期**
+   > "我使用 APScheduler 编排每日数据下载、每周个性保持增量学习、物理感知 A/B 测试模型晋升和自动生成报告，构建了完整的"采集-训练-进化"自主框架。这创造了一个 24/7 无需人工干预的自我维持 AI 生态系统，持续适应不断演化的黄河水文。"
 
-10. **Unified Data Adapter for Multi-Source Integration**
-    > "I designed a unified data access layer that seamlessly integrates heterogeneous data sources—SQLite databases, CSV archives, REST APIs, and simulation fallbacks—providing a consistent interface for the autonomous system. This adapter implements the Yellow River's unique 'big water brings big sand' hydrological personality through realistic synthetic data generation when real sensors are unavailable, ensuring continuous system operation."
+9. **数字回溯：回归预防**
+   > "我实施了每月回归测试机制，针对 2021 年极端洪水基线评估进化后模型，在灾难性遗忘影响运行能力前检测到它。这种'数字回溯'确保系统真正随时间变聪明，而非通过增量学习中的破坏性干扰来'拆东墙补西墙'。"
 
-11. **Next-Generation Monitoring Dashboard**
-    > "I engineered an upgraded Streamlit dashboard featuring real-time sensor data integration, evolution trajectory visualization, and multimodal vision monitoring. The dashboard supports a 'real-time mode' with 5-second auto-refresh, station status tables with color-coded alerts, and an intuitive tabbed interface for water-sediment prediction, danger detection, and RL-based decision recommendations—creating a comprehensive command center for autonomous flood management."
+10. **统一数据适配器用于多源集成**
+    > "我设计了统一数据访问层，无缝集成异构数据源——SQLite 数据库、CSV 存档、REST API 和模拟回退，为自主系统提供一致的接口。当真实传感器不可用时，该适配器通过真实的合成数据生成实现黄河独特的"大水大沙"水文个性，确保系统连续运行。"
 
-### Notable Findings
+11. **下一代监控仪表板**
+    > "我工程化了升级的 Streamlit 仪表板，具有实时传感器数据集成、进化轨迹可视化和多模态视觉监控。仪表板支持'实时模式'5 秒自动刷新、带颜色编码警报的站点状态表，以及用于水沙预测、险情检测和 RL 决策推荐的直观标签界面——为自主防洪管理创建了全面的指挥中心。"
+
+### 重要发现
 
 ```
-Through secondary verification, I discovered that when simulating 50-year flood 
-conditions, pure data-driven models and physics-constrained models exhibited 
-significant prediction divergence (up to 124.68% in sediment prediction). 
+通过二次验证，我发现当模拟 50 年一遇洪水条件时，纯数据驱动模型和物理约束模型
+在泥沙预测上表现出显著预测分歧（高达 124.68%）。
 
-This finding reveals the brittleness of data-driven approaches under extreme 
-conditions and proves the critical value of physics-informed interventions 
-for flood prevention decisions.
+这一发现揭示了数据驱动方法在极端条件下的脆弱性，证明了物理信息干预对防洪
+决策的关键价值。
 ```
 
-## 🎯 Performance Benchmarks
+---
 
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| End-to-end Latency | < 60s | ✅ ~45s |
-| Physics Residual | < 0.1 | ✅ 0.05-0.08 |
-| Multi-model Divergence | < 10% | ✅ 8.5% avg |
-| RL Training Speed | > 500 steps/s | ✅ 800+ steps/s |
+## 🎯 性能基准
 
-## 🔧 Technical Specifications
+| 指标 | 目标 | 达成 |
+|------|------|------|
+| 端到端延迟 | < 60s | ✅ ~45s |
+| 物理残差 | < 0.1 | ✅ 0.05-0.08 |
+| 多模型分歧 | < 10% | ✅ 8.5% 平均 |
+| RL 训练速度 | > 500 steps/s | ✅ 800+ steps/s |
 
-### Data Layer
-- **Input**: Real-time hydrological/meteorological APIs
-- **Graph Construction**: River network topology (nodes=stations, edges=river segments)
-- **Feature Dimensions**: 6 node features × N stations
+---
 
-### Spatio-Temporal Engine
-- **GNN**: GAT (Graph Attention Networks) for spatial dependencies
-- **Transformer**: Informer-style ProbSparse attention for temporal patterns
-- **Sequence Length**: 24-hour historical window
-- **Prediction Horizon**: 6-hour ahead forecasting
+## 🔧 技术规格
 
-### Physics Constraints
-- **Continuity Equation**: Mass conservation
-- **Momentum Equation**: Motion with Manning friction
-- **Adaptive Weighting**: Curriculum learning from 0.1 → 1.0
+### 数据层
+- **输入**: 实时水文/气象 API
+- **图构建**: 河流网络拓扑（节点=站点，边=河段）
+- **特征维度**: 6 节点特征 × N 站点
 
-### RL Controller
-- **Algorithm**: PPO (Proximal Policy Optimization)
-- **State Space**: 19-dimensional (water levels × 5 + inflows × 5 + rain × 5 + time features × 4)
-- **Action Space**: 5-dimensional discharge adjustments
-- **Simulator**: Fast kinematic wave approximation
+### 时空引擎
+- **GNN**: GAT（图注意力网络）用于空间依赖
+- **Transformer**: Informer 风格 ProbSparse 注意力用于时间模式
+- **序列长度**: 24 小时历史窗口
+- **预测范围**: 6 小时超前预报
 
-### Yellow River Personality Learning ⭐ NEW
-- **Seasonal Encoding**: Sin/Cos encoding for flood/dry season cycles (annual + quarterly)
-- **Feature Crossing**: Explicit Q×S interaction for "big water brings big sand"
-- **Sediment Gradient Monitor**: Detects burst patterns during flood waves
-- **Exner Dynamics**: Erosion/deposition modeling with porosity parameter
-- **NTK Adaptive Weighting**: Automatic physics weight adjustment during training
-- **Two-Stage Training**: Adam (1000 epochs) → L-BFGS (physics residual < 0.1)
+### 物理约束
+- **连续性方程**: 质量守恒
+- **动量方程**: 含曼宁摩擦的运动方程
+- **自适应加权**: 课程学习 0.1 → 1.0
 
-### Verification
-- **Models**: PINN_SOTA, Baseline, Sensitive_n
-- **Metric**: RMSE between model predictions
-- **Decision**: Auto-reject if divergence > 10%
+### RL 控制器
+- **算法**: PPO（近端策略优化）
+- **状态空间**: 19 维（水位×5 + 入流×5 + 降雨×5 + 时间特征×4）
+- **动作空间**: 5 维泄洪调整
+- **仿真器**: 快速运动波近似
 
-### 🧬 Evolution Engine (Autonomous Self-Improvement) ⭐ NEW
-- **Error Feedback Loop**: Real-time monitoring of prediction vs ground truth
-- **Hard Example Mining**: Auto-capture cases with >15% error
-- **Auto-Calibration**: Gradient-based fine-tuning of S₀ and B when physics residuals rise
-- **Incremental Learning**: Low-LR fine-tuning of Transformer attention layers
-- **A/B Testing**: Automatic model promotion if validation improves by >5%
-- **Evolution Trajectory**: Dashboard visualization of model improvement over time
+### 黄河个性学习 ⭐ 新增
+- **季节编码**: 汛期/枯水期周期的 Sin/Cos 编码（年度+季度）
+- **特征交叉**: Q×S 显式交互实现"大水大沙"
+- **泥沙梯度监控**: 检测洪峰期间的突发模式
+- **Exner 动力学**: 带孔隙参数的侵蚀/沉积建模
+- **NTK 自适应加权**: 训练期间自动物理权重调整
+- **两阶段训练**: Adam（1000 轮）→ L-BFGS（物理残差 < 0.1）
 
-### � Digital Backtrack (Regression Prevention) ⭐ NEW
-- **Monthly Test**: 1st of each month, 3:00 AM - test on 2021 extreme flood
-- **Catastrophic Forgetting Detection**: Compare current vs baseline performance
-- **Auto-Alert**: >10% degradation triggers warning, >20% triggers rollback
-- **Baseline Preservation**: First test establishes reference, subsequent tests compare
-- **Purpose**: Prevent "robbing Peter to pay Paul" - ensure system gets smarter, not forgetful
+### 验证
+- **模型**: PINN_SOTA、Baseline、Sensitive_n
+- **指标**: 模型预测间的 RMSE
+- **决策**: 分歧 > 10% 时自动拒绝
 
-### �� Multimodal Vision Intelligence ⭐ NEW
-- **ViT Anomaly Detection**: Vision Transformer for crack/erosion/seepage detection
-- **SAM Integration**: Interactive segmentation for precise damage localization
-- **Multimodal Fusion**: Combine visual features with sensor data (water level + flow)
-- **Gemini LLM**: AI-generated diagnostic reports with actionable recommendations
-- **Auto-Alert Trigger**: >80% confidence + high water level → Critical status
-- **Drone Dashboard**: Real-time UAV feed with AI explanation overlay
+### 🧬 进化引擎（自主自我改进）⭐ 新增
+- **错误反馈循环**: 实时监控预测 vs 真值
+- **困难样本挖掘**: 自动捕获误差 > 15% 的案例
+- **自动校准**: 物理残差上升时对 S₀ 和 B 进行梯度微调
+- **增量学习**: Transformer 注意力层的低 LR 微调
+- **A/B 测试**: 验证提升 > 5% 时自动模型晋升
+- **进化轨迹**: 模型随时间改进的仪表板可视化
 
-### 🤖 AutoPilot: Collect-Train-Evolve Loop ⭐ NEW
-- **Scheduler**: APScheduler with async task queue
-- **Auto-Downloader**: Daily 2 AM API fetch with exponential backoff retry
-- **Auto-Trainer**: 7-day trigger, 20% historical buffer, personality-preserving fine-tune
-- **Self-Evolution**: Physics residual check, auto-promotion/demotion, auto-HP search
-- **Auto-Reports**: evolution_report.md with generation lineage and trend plots
-- **Non-blocking**: Async execution, no interference with real-time alerts
+### 🔙 数字回溯（回归预防）⭐ 新增
+- **每月测试**: 每月 1 日凌晨 3:00 - 2021 年极端洪水测试
+- **灾难性遗忘检测**: 比较当前与基线性能
+- **自动警报**: > 10% 退化触发警告，> 20% 触发回滚
+- **基线保留**: 首次测试建立参考，后续测试比较
+- **目的**: 防止"拆东墙补西墙"——确保系统变聪明而非健忘
 
-### � Data Adapter (Unified Data Interface) ⭐ NEW
+### 👁️ 多模态视觉智能 ⭐ 新增
+- **ViT 异常检测**: Vision Transformer 检测裂缝/侵蚀/渗漏
+- **SAM 集成**: 交互式分割用于精确定位损伤
+- **多模态融合**: 视觉特征与水位的传感器数据融合
+- **Gemini LLM**: AI 生成诊断报告与可操作建议
+- **自动警报触发**: > 80% 置信度 + 高水位 → 临界状态
+- **无人机仪表板**: 带 AI 解释叠加的实时 UAV 画面
+
+### 🤖 AutoPilot: 采集-训练-进化循环 ⭐ 新增
+- **调度器**: APScheduler 异步任务队列
+- **自动下载器**: 每日凌晨 2 点 API 获取，指数退避重试
+- **自动训练器**: 7 天触发，20% 历史缓冲区，个性保持微调
+- **自我进化**: 物理残差检查，自动晋升/降级，自动超参搜索
+- **自动报告**: evolution_report.md 含世代谱系和趋势图
+- **非阻塞**: 异步执行，不干扰实时警报
+
+### 📡 数据适配器（统一数据接口）⭐ 新增
 
 ```python
 from smart_flood_system.data_adapter import get_data_adapter
 
 adapter = get_data_adapter()
 
-# Get real-time sensor readings from all 5 stations
+# 从所有 5 个站点获取实时传感器读数
 df = adapter.get_latest_readings(hours=24)
 
-# Get station status with alerts
+# 获取带警报的站点状态
 status = adapter.get_station_status()
 
-# Get formatted inputs for model prediction
+# 获取模型预测的格式化输入
 inputs = adapter.get_prediction_inputs('HYD_001')
 
-# Access 2021 flood data for backtrack testing
+# 访问 2021 洪水数据用于回溯测试
 extreme_data = adapter.get_historical_extremes(station_id='HYD_001')
 ```
 
-**Features:**
-- **Multi-source Support**: SQLite / CSV / API / Simulation fallback
-- **5 Stations**: 兰州 → 河口镇 → 龙门 → 三门峡 → 花园口
-- **Real-time Mode**: Auto-detects real data vs simulation
-- **Data Validation**: Automatic status calculation (NORMAL/WARNING/CRITICAL)
+**功能：**
+- **多源支持**: SQLite / CSV / API / 模拟回退
+- **5 站点**: 兰州 → 河口镇 → 龙门 → 三门峡 → 花园口
+- **实时模式**: 自动检测真实数据 vs 模拟
+- **数据验证**: 自动状态计算（正常/警告/临界）
 
-### 💻 Monitor CLI (Terminal Status Viewer) ⭐ NEW
+### 💻 监控器 CLI（终端状态查看器）⭐ 新增
 
 ```bash
-# View AutoPilot system status
+# 查看 AutoPilot 系统状态
 python smart_flood_system/monitor.py
 
-# Shows:
-# - System status (running/stopped)
-# - Latest logs
-# - Model counts in autopilot/
-# - Recent reports
-# - Upcoming scheduled tasks
+# 显示：
+# - 系统状态（运行/停止）
+# - 最新日志
+# - autopilot/ 中的模型计数
+# - 最近报告
+# - 即将到来的调度任务
 ```
 
-## 📊 Dashboard Features
+---
 
-### Dashboard v1 (Basic)
+## 📊 仪表板功能
 
-The original Streamlit dashboard provides:
-- Live water level maps
-- GNN-Transformer forecasts
-- Physics residual checks
-- RL decision display
+### 基础仪表板 (Dashboard v1)
 
-### Dashboard v2: Autonomous Smart Management System ⭐ NEW
+原始 Streamlit 仪表板提供：
+- 实时水位图
+- GNN-Transformer 预报
+- 物理残差检查
+- RL 决策显示
+
+### Dashboard v2: 自主管理系统 ⭐ 新增
 
 ```bash
 streamlit run smart_flood_system/app/dashboard_v2.py --server.port 8501
 ```
 
-**New Features:**
+**新功能：**
 
-1. **System Status Sidebar**
-   - Model version display (e.g., v2.4.2-Evolved)
-   - API connection status (🟢 Connected)
-   - Last sync timestamp
-   - Active station counter (5/5)
+1. **系统状态边栏**
+   - 模型版本显示（如 v2.4.2-Evolved）
+   - API 连接状态（🟢 已连接）
+   - 上次同步时间戳
+   - 活跃站点计数（5/5）
 
-2. **Evolution Trajectory Chart**
-   - Physics residual over generations
-   - Visual proof: "model gets smarter over time"
-   - Generation lineage tracking
+2. **进化轨迹图表**
+   - 世代间物理残差
+   - 视觉证明："模型随时间变聪明"
+   - 世代谱系追踪
 
-3. **Multimodal Monitoring Tabs**
-   - 💧 **水沙预测**: Real-time water level & sediment prediction
-   - ⚠️ **险情识别**: Drone image upload → AI crack detection with red bounding boxes
-   - 💡 **决策建议**: RL-recommended discharge + scour depth estimation
+3. **多模态监控标签**
+   - 💧 **水沙预测**: 实时水位与泥沙预报
+   - ⚠️ **险情识别**: 无人机图像上传 → 带红框的 AI 裂缝检测
+   - 💡 **决策建议**: RL 推荐泄洪 + 冲刷深度估算
 
-4. **Smart Scheduling Commands**
-   - Recommended discharge flow (m³/s)
-   - Estimated scour depth
-   - Risk probability gauges
+4. **智能调度指令**
+   - 推荐泄洪流量（m³/s）
+   - 估算冲刷深度
+   - 风险概率仪表盘
 
-5. **Real-time Mode**
-   - 5-second auto-refresh toggle
-   - Data source indicator (real/simulated/mixed)
-   - Station status table with color-coded alerts
+5. **实时模式**
+   - 5 秒自动刷新切换
+   - 数据源指示器（真实/模拟/混合）
+   - 带颜色编码警报的站点状态表
 
-## 🛠️ Development
+---
 
-### Adding New Features
+## 🛠️ 开发
 
-1. **Custom GNN Layers**
+### 添加新功能
+
+1. **自定义 GNN 层**
 ```python
-# In models/graph_transformer/stgnn.py
+# 在 models/graph_transformer/stgnn.py
 from torch_geometric.nn import YourCustomConv
 
 self.spatial_convs.append(YourCustomConv(...))
 ```
 
-2. **New Physics Constraints**
+2. **新物理约束**
 ```python
-# In models/pinn_loss/physics_constraints.py
+# 在 models/pinn_loss/physics_constraints.py
 class CustomPhysicsLoss(nn.Module):
     def forward(self, predictions, data):
-        # Your custom physics here
+        # 你的自定义物理
         return loss
 ```
 
-3. **Alternative RL Algorithms**
+3. **替代 RL 算法**
 ```python
-# In models/rl_agent/flood_controller.py
-class SACAgent:  # Soft Actor-Critic
-    # Implementation
+# 在 models/rl_agent/flood_controller.py
+class SACAgent:  # 软 Actor-Critic
+    # 实现
 ```
 
-### Testing
+### 测试
 
 ```bash
-# Unit tests
+# 单元测试
 python -m pytest tests/
 
-# Specific module test
+# 特定模块测试
 python smart_flood_system/models/graph_transformer/stgnn.py
 python smart_flood_system/models/pinn_loss/physics_constraints.py
 ```
 
-## 📚 Citation
+---
 
-If you use this system in your research, please cite:
+## 📚 引用
+
+如在你的研究中使用本系统，请引用：
 
 ```bibtex
 @software{smart_yellow_river_flood_system,
   author = {Yellow River Digital Twin Project},
   title = {Smart Flood Management System with Physics-Informed Deep Learning},
   year = {2024},
-  url = {https://github.com/your-repo/smart-flood-system}
+  url = {https://github.com/Wiiiiiiiley/The-Yellow-River}
 }
 ```
 
-## 📄 License
+---
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 📄 许可证
 
-## 🤝 Acknowledgments
-
-- Yellow River Conservancy Commission for domain expertise
-- PyTorch Geometric team for GNN frameworks
-- Informer authors for efficient attention mechanisms
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
 
 ---
 
-**Contact**: For technical questions or collaboration inquiries, please open an issue or contact the development team.
+## 🤝 致谢
 
-**Project Status**: Active development - v2.0.0 released
-- ✅ Autonomous "Collect-Train-Evolve" lifecycle
-- ✅ Real-time sensor data adapter (5 stations)
-- ✅ Dashboard v2 with multimodal monitoring
-- ✅ Digital backtrack (catastrophic forgetting prevention)
-- ✅ CLI monitor for headless operation
+- 黄河水利委员会提供的领域专业知识
+- PyTorch Geometric 团队的 GNN 框架
+- Informer 作者的高效注意力机制
+
+---
+
+**联系方式**: 如有技术问题或合作咨询，请提交 issue 或联系开发团队。
+
+**项目状态**: 积极开发中 - v2.0.0 已发布
+- ✅ 自主"采集-训练-进化"生命周期
+- ✅ 实时传感器数据适配器（5 站点）
+- ✅ 带多模态监控的 Dashboard v2
+- ✅ 数字回溯（灾难性遗忘预防）
+- ✅ 无界面操作的 CLI 监控器
