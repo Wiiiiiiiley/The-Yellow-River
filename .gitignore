@@ -55,3 +55,18 @@ models/checkpoints/
 # OS
 .DS_Store
 Thumbs.db
+
+# AutoPilot System
+logs/*.log
+logs/*.log.*
+reports/evolution/*.md
+models/autopilot/*.pth
+data/autopilot.db
+data/archive/**/*.csv
+!data/archive/.gitkeep
+!data/archive/hydrology/.gitkeep
+!data/archive/meteorology/.gitkeep
+
+# Keep example data
+!data/archive/hydrology/2021_flood.csv
+!data/archive/hydrology/sample_data.csv
