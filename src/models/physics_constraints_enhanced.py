@@ -425,9 +425,9 @@ class EnhancedPhysicsConstraintLoss(nn.Module):
         u_mid = u_norm[:, 1:1+min_time, 1:1+min_space]
         convection = u_mid * du_dx[:, :min_time, :min_space]
         
-        # 压力梯度
+        # 压力梯度 (归一化动量方程系数: g*h_ref/u_ref^2)
         dh_dx = self.compute_high_order_space_derivative(h_norm, dx)
-        pressure_gradient = -self.g * dh_dx[:, :min_time, :min_space] / self.z_ref
+        pressure_gradient = -self.g * dh_dx[:, :min_time, :min_space] * (self.h_ref / self.u_ref**2)
         
         # 摩擦损失 (曼宁公式)
         h_mid = torch.clamp(h_norm[:, 1:1+min_time, 1:1+min_space], min=0.01)

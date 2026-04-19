@@ -274,9 +274,15 @@ class PhysicsInformedPostProcessor(nn.Module):
             features = torch.cat([h_new.unsqueeze(-1), Q_new.unsqueeze(-1)], dim=-1)
             strength = self.correction_strength(features).squeeze(-1)  # (batch, pred_horizon, n_nodes)
             
-            # 软修正: 仅修正水位
+            # 软修正: 仅修正水位 (避免 in-place 操作)
             correction = gate[..., 0] * strength * 0.01  # 小幅度修正
-            x_transformed[..., 0] = h_new - correction
+            h_corrected = h_new - correction
+            
+            # 重建张量，避免 in-place 修改
+            x_transformed = torch.cat([
+                h_corrected.unsqueeze(-1),
+                x_transformed[..., 1:]
+            ], dim=-1)
         
         return x_transformed
 
