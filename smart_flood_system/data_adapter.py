@@ -1,424 +1,463 @@
 """
-Data Adapter - Real-time Sensor Data Interface
-===============================================
-
-Connects dashboard to real sensor data sources:
-1. CSV files (historical/archived data)
-2. SQLite database (autopilot storage)
-3. API endpoints (real-time streaming)
-4. Simulation mode (for testing)
-
-Usage:
-    from data_adapter import SensorDataAdapter
-    
-    adapter = SensorDataAdapter()
-    df = adapter.get_latest_readings(station_id='HYD_001', hours=24)
+统一数据适配器 - 多源数据集成层
+支持: SQLite / CSV / API / 模拟数据
 """
 
-import os
-import json
 import sqlite3
+import pandas as pd
+import numpy as np
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
+import json
 import logging
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
-import numpy as np
-import pandas as pd
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
 
-class SensorDataAdapter:
-    """
-    Unified interface for sensor data access.
+class DataSource(ABC):
+    """数据源基类"""
     
-    Supports multiple data sources with fallback:
-    1. Real SQLite database
-    2. CSV archives
-    3. Simulated data (fallback)
-    """
+    @abstractmethod
+    def get_readings(self, station_id: str, hours: int = 24) -> pd.DataFrame:
+        """获取传感器读数"""
+        pass
     
-    # Station configurations (Yellow River hydrological stations)
-    STATIONS = {
-        'HYD_001': {'name': '兰州', 'lat': 36.061, 'lon': 103.834, 'type': 'upstream'},
-        'HYD_002': {'name': '河口镇', 'lat': 40.333, 'lon': 111.133, 'type': 'midstream'},
-        'HYD_003': {'name': '龙门', 'lat': 35.612, 'lon': 110.572, 'type': 'midstream'},
-        'HYD_004': {'name': '三门峡', 'lat': 34.800, 'lon': 111.200, 'type': 'downstream'},
-        'HYD_005': {'name': '花园口', 'lat': 34.910, 'lon': 113.650, 'type': 'downstream'},
-    }
+    @abstractmethod
+    def get_latest_reading(self, station_id: str) -> Dict:
+        """获取最新读数"""
+        pass
+
+
+class SQLiteSource(DataSource):
+    """SQLite 数据源"""
     
-    def __init__(self, data_dir: str = "data/"):
-        self.data_dir = Path(data_dir)
-        self.archive_dir = self.data_dir / "archive"
-        self.db_path = self.data_dir / "autopilot.db"
-        
-        # Create directories
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.archive_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Data source priority
-        self.use_simulation = not self._has_real_data()
-        
-        if self.use_simulation:
-            logger.info("No real data found. Using simulation mode.")
-            self._init_simulation()
-        else:
-            logger.info(f"Connected to real data sources: {self.db_path}")
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self.conn = None
+        self._ensure_db()
     
-    def _has_real_data(self) -> bool:
-        """Check if real data sources exist."""
-        return self.db_path.exists() or any(self.archive_dir.glob("**/*.csv"))
-    
-    def _init_simulation(self):
-        """Initialize realistic simulation based on Yellow River patterns."""
-        self.sim_seed = int(datetime.now().timestamp())
-        np.random.seed(self.sim_seed)
-        logger.info(f"Simulation initialized with seed {self.sim_seed}")
-    
-    # =========================================================================
-    # PUBLIC API
-    # =========================================================================
-    
-    def get_latest_readings(self, hours: int = 24) -> pd.DataFrame:
-        """
-        Get latest sensor readings for all stations.
-        
-        Args:
-            hours: Number of hours of history to return
-            
-        Returns:
-            DataFrame with columns: [timestamp, station_id, water_level, 
-                                     flow_rate, sediment, temperature, rainfall]
-        """
-        if self.use_simulation:
-            return self._simulate_readings(hours)
-        
-        # Try database first
-        if self.db_path.exists():
-            return self._read_from_db(hours)
-        
-        # Fall back to CSV
-        return self._read_from_csv(hours)
-    
-    def get_station_status(self) -> pd.DataFrame:
-        """Get current status of all monitoring stations."""
-        now = datetime.now()
-        
-        records = []
-        for station_id, info in self.STATIONS.items():
-            # Get latest reading
-            latest = self.get_latest_readings(hours=1)
-            if not latest.empty:
-                station_data = latest[latest['station_id'] == station_id]
-                if not station_data.empty:
-                    latest_row = station_data.iloc[-1]
-                    records.append({
-                        'station_id': station_id,
-                        'name': info['name'],
-                        'type': info['type'],
-                        'lat': info['lat'],
-                        'lon': info['lon'],
-                        'last_update': latest_row['timestamp'],
-                        'water_level': latest_row['water_level'],
-                        'flow_rate': latest_row['flow_rate'],
-                        'sediment': latest_row['sediment'],
-                        'status': self._calculate_status(latest_row['water_level']),
-                        'data_age_minutes': (now - pd.to_datetime(latest_row['timestamp'])).total_seconds() / 60
-                    })
-        
-        return pd.DataFrame(records)
-    
-    def get_prediction_inputs(self, station_id: str = None) -> Dict:
-        """
-        Get formatted inputs for model prediction.
-        
-        Returns features needed by PINN model:
-        - flow_rate, rainfall, temperature
-        - temporal encodings (sin/cos year, season, hour)
-        """
-        df = self.get_latest_readings(hours=1)
-        
-        if station_id:
-            df = df[df['station_id'] == station_id]
-        
-        if df.empty:
-            return self._get_default_inputs()
-        
-        latest = df.iloc[-1]
-        now = datetime.now()
-        
-        # Temporal encodings
-        day_of_year = now.timetuple().tm_yday
-        hour = now.hour
-        
-        return {
-            'flow_rate': latest['flow_rate'],
-            'sediment': latest['sediment'],
-            'temperature': latest['temperature'],
-            'rainfall': latest['rainfall'],
-            'water_level': latest['water_level'],
-            'sin_year': np.sin(2 * np.pi * day_of_year / 365),
-            'cos_year': np.cos(2 * np.pi * day_of_year / 365),
-            'sin_season': np.sin(2 * np.pi * day_of_year / 365 * 4),  # 4 seasons
-            'cos_season': np.cos(2 * np.pi * day_of_year / 365 * 4),
-            'is_flood_season': 1 if day_of_year in range(181, 273) else 0,  # July-Sept
-            'sin_hour': np.sin(2 * np.pi * hour / 24),
-            'cos_hour': np.cos(2 * np.pi * hour / 24),
-            'timestamp': now.isoformat()
-        }
-    
-    def get_historical_extremes(self, station_id: str = None, years: int = 5) -> Dict:
-        """
-        Get historical extreme flood data for backtrack validation.
-        
-        Returns 2021 flood data or simulated extremes.
-        """
-        # Check for archived extreme data
-        extreme_file = self.archive_dir / "hydrology" / "2021_flood.csv"
-        
-        if extreme_file.exists():
-            df = pd.read_csv(extreme_file)
-            if station_id:
-                df = df[df['station_id'] == station_id]
-            return {
-                'has_real_data': True,
-                'max_water_level': df['water_level'].max(),
-                'max_flow_rate': df['flow_rate'].max(),
-                'max_sediment': df['sediment'].max(),
-                'data': df.to_dict('records')
-            }
-        
-        # Return simulated 2021 extreme flood
-        return self._simulate_2021_flood(station_id)
-    
-    def save_prediction_result(self, prediction: Dict):
-        """Save model prediction to database for tracking."""
-        if not self.db_path.exists():
-            self._init_database()
-        
+    def _ensure_db(self):
+        """确保数据库和表存在"""
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        cursor.execute('''
-            INSERT INTO predictions 
-            (timestamp, station_id, predicted_level, predicted_flow, 
-             confidence, physics_residual, model_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            datetime.now().isoformat(),
-            prediction.get('station_id', 'unknown'),
-            prediction.get('water_level', 0),
-            prediction.get('flow_rate', 0),
-            prediction.get('confidence', 0),
-            prediction.get('physics_residual', 0),
-            prediction.get('model_version', 'unknown')
-        ))
-        
-        conn.commit()
-        conn.close()
-        logger.info(f"Saved prediction for {prediction.get('station_id')}")
-    
-    # =========================================================================
-    # PRIVATE METHODS - Data Sources
-    # =========================================================================
-    
-    def _read_from_db(self, hours: int) -> pd.DataFrame:
-        """Read data from SQLite database."""
-        conn = sqlite3.connect(self.db_path)
-        
-        since = (datetime.now() - timedelta(hours=hours)).isoformat()
-        
-        query = f"""
-            SELECT * FROM sensor_data 
-            WHERE timestamp > '{since}'
-            ORDER BY timestamp DESC
-        """
-        
-        df = pd.read_sql_query(query, conn)
-        conn.close()
-        
-        return df
-    
-    def _read_from_csv(self, hours: int) -> pd.DataFrame:
-        """Read data from CSV archives."""
-        all_data = []
-        
-        for csv_file in self.archive_dir.glob("**/*.csv"):
-            try:
-                df = pd.read_csv(csv_file)
-                df['source_file'] = csv_file.name
-                all_data.append(df)
-            except Exception as e:
-                logger.warning(f"Failed to read {csv_file}: {e}")
-        
-        if not all_data:
-            return self._simulate_readings(hours)
-        
-        df = pd.concat(all_data, ignore_index=True)
-        
-        # Filter by time
-        since = datetime.now() - timedelta(hours=hours)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df = df[df['timestamp'] > since]
-        
-        return df.sort_values('timestamp', ascending=False)
-    
-    # =========================================================================
-    # PRIVATE METHODS - Simulation
-    # =========================================================================
-    
-    def _simulate_readings(self, hours: int) -> pd.DataFrame:
-        """Generate realistic sensor readings based on Yellow River patterns."""
-        now = datetime.now()
-        timestamps = [now - timedelta(hours=i) for i in range(hours, 0, -1)]
-        
-        records = []
-        
-        for station_id, info in self.STATIONS.items():
-            # Base values vary by station position
-            base_level = 50 + (info['lat'] - 34) * 0.5  # Higher upstream
-            base_flow = 2000 + np.random.randn() * 500
-            
-            for t in timestamps:
-                # Add diurnal cycle
-                hour = t.hour
-                diurnal = np.sin(2 * np.pi * hour / 24) * 0.5
-                
-                # Add seasonal trend (flood season July-Sept)
-                day_of_year = t.timetuple().tm_yday
-                seasonal = 0
-                if 180 <= day_of_year <= 270:  # Flood season
-                    seasonal = np.sin(2 * np.pi * (day_of_year - 180) / 90) * 5
-                
-                # Random variation
-                noise = np.random.randn() * 0.3
-                
-                water_level = base_level + diurnal + seasonal + noise
-                flow_rate = base_flow * (1 + (water_level - base_level) * 0.02)
-                
-                # Sediment follows "big water brings big sand" principle
-                sediment = 15 + flow_rate * 0.005 + np.random.randn() * 2
-                
-                records.append({
-                    'timestamp': t.isoformat(),
-                    'station_id': station_id,
-                    'station_name': info['name'],
-                    'water_level': round(water_level, 2),
-                    'flow_rate': round(flow_rate, 1),
-                    'sediment': round(max(0, sediment), 2),
-                    'temperature': round(20 + seasonal * 0.5 + np.random.randn() * 2, 1),
-                    'rainfall': round(max(0, np.random.exponential(2)), 1),
-                    'is_simulated': True
-                })
-        
-        return pd.DataFrame(records)
-    
-    def _simulate_2021_flood(self, station_id: str = None) -> Dict:
-        """Simulate 2021 extreme flood data for backtrack testing."""
-        # 2021 July flood event data (simulated but realistic)
-        base_records = [
-            {'timestamp': '2021-07-20T00:00:00', 'water_level': 58.5, 'flow_rate': 4500, 'sediment': 45},
-            {'timestamp': '2021-07-20T06:00:00', 'water_level': 62.1, 'flow_rate': 5200, 'sediment': 58},
-            {'timestamp': '2021-07-20T12:00:00', 'water_level': 65.8, 'flow_rate': 6100, 'sediment': 72},
-            {'timestamp': '2021-07-20T18:00:00', 'water_level': 67.2, 'flow_rate': 6800, 'sediment': 85},
-            {'timestamp': '2021-07-21T00:00:00', 'water_level': 64.5, 'flow_rate': 5500, 'sediment': 65},
-        ]
-        
-        df = pd.DataFrame(base_records)
-        
-        return {
-            'has_real_data': False,
-            'max_water_level': df['water_level'].max(),
-            'max_flow_rate': df['flow_rate'].max(),
-            'max_sediment': df['sediment'].max(),
-            'data': df.to_dict('records')
-        }
-    
-    def _calculate_status(self, water_level: float) -> str:
-        """Calculate alert status based on water level."""
-        if water_level >= 65:
-            return 'CRITICAL'
-        elif water_level >= 55:
-            return 'WARNING'
-        return 'NORMAL'
-    
-    def _get_default_inputs(self) -> Dict:
-        """Return default inputs when no data available."""
-        return {
-            'flow_rate': 2000,
-            'sediment': 25,
-            'temperature': 22,
-            'rainfall': 0,
-            'water_level': 52,
-            'sin_year': 0,
-            'cos_year': 1,
-            'sin_season': 0,
-            'cos_season': 1,
-            'is_flood_season': 0,
-            'sin_hour': 0,
-            'cos_hour': 1,
-            'timestamp': datetime.now().isoformat()
-        }
-    
-    def _init_database(self):
-        """Initialize SQLite database with schema."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
+        # 创建数据表
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS sensor_data (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                station_id TEXT,
+                station_id TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
                 water_level REAL,
-                flow_rate REAL,
-                sediment REAL,
+                discharge REAL,
+                sediment_concentration REAL,
                 temperature REAL,
-                rainfall REAL
+                rainfall REAL,
+                prediction_target REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(station_id, timestamp)
             )
         ''')
         
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS predictions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                station_id TEXT,
-                predicted_level REAL,
-                predicted_flow REAL,
-                confidence REAL,
-                physics_residual REAL,
-                model_version TEXT
-            )
-        ''')
-        
+        # 创建索引
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_station_time ON sensor_data(station_id, timestamp)')
         conn.commit()
         conn.close()
-        logger.info(f"Initialized database at {self.db_path}")
+    
+    def get_connection(self):
+        """获取数据库连接"""
+        if self.conn is None:
+            self.conn = sqlite3.connect(self.db_path)
+        return self.conn
+    
+    def get_readings(self, station_id: str, hours: int = 24) -> pd.DataFrame:
+        """从 SQLite 获取读数"""
+        conn = self.get_connection()
+        
+        since_timestamp = int((datetime.now() - timedelta(hours=hours)).timestamp())
+        
+        query = f'''
+            SELECT station_id, timestamp, water_level, discharge, 
+                   sediment_concentration, temperature, rainfall
+            FROM sensor_data
+            WHERE station_id = ? AND timestamp >= ?
+            ORDER BY timestamp ASC
+        '''
+        
+        try:
+            df = pd.read_sql_query(query, conn, params=(station_id, since_timestamp))
+            if not df.empty:
+                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+            return df
+        except Exception as e:
+            logger.error(f"SQLite 查询失败: {e}")
+            return pd.DataFrame()
+    
+    def get_latest_reading(self, station_id: str) -> Dict:
+        """获取最新读数"""
+        conn = self.get_connection()
+        
+        query = '''
+            SELECT * FROM sensor_data
+            WHERE station_id = ?
+            ORDER BY timestamp DESC
+            LIMIT 1
+        '''
+        
+        try:
+            cursor = conn.execute(query, (station_id,))
+            row = cursor.fetchone()
+            if row:
+                columns = ['id', 'station_id', 'timestamp', 'water_level', 'discharge',
+                          'sediment_concentration', 'temperature', 'rainfall', 'prediction_target', 'created_at']
+                return dict(zip(columns, row))
+            return {}
+        except Exception as e:
+            logger.error(f"获取最新读数失败: {e}")
+            return {}
+    
+    def insert_reading(self, station_id: str, timestamp: int, 
+                      water_level: float, discharge: float, 
+                      sediment_concentration: float, temperature: float = None,
+                      rainfall: float = None):
+        """插入新读数"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                INSERT OR REPLACE INTO sensor_data 
+                (station_id, timestamp, water_level, discharge, 
+                 sediment_concentration, temperature, rainfall)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (station_id, timestamp, water_level, discharge, 
+                  sediment_concentration, temperature, rainfall))
+            conn.commit()
+        except Exception as e:
+            logger.error(f"插入数据失败: {e}")
 
 
-# =========================================================================
-# Convenience Functions
-# =========================================================================
+class CSVSource(DataSource):
+    """CSV 文件数据源"""
+    
+    def __init__(self, csv_dir: str = "data/archive/"):
+        self.csv_dir = Path(csv_dir)
+        self.csv_dir.mkdir(parents=True, exist_ok=True)
+    
+    def get_readings(self, station_id: str, hours: int = 24) -> pd.DataFrame:
+        """从 CSV 获取读数"""
+        csv_files = list(self.csv_dir.glob(f"*{station_id}*.csv"))
+        
+        if not csv_files:
+            return pd.DataFrame()
+        
+        dfs = []
+        since_time = datetime.now() - timedelta(hours=hours)
+        
+        for csv_file in csv_files:
+            try:
+                df = pd.read_csv(csv_file)
+                if 'timestamp' in df.columns:
+                    df['timestamp'] = pd.to_datetime(df['timestamp'])
+                    df = df[df['timestamp'] >= since_time]
+                    dfs.append(df)
+            except Exception as e:
+                logger.warning(f"读取 {csv_file} 失败: {e}")
+        
+        if dfs:
+            return pd.concat(dfs, ignore_index=True).sort_values('timestamp')
+        return pd.DataFrame()
+    
+    def get_latest_reading(self, station_id: str) -> Dict:
+        """获取最新读数"""
+        df = self.get_readings(station_id, hours=720)  # 30 天
+        if not df.empty:
+            latest = df.iloc[-1].to_dict()
+            return latest
+        return {}
 
-def get_data_adapter() -> SensorDataAdapter:
-    """Factory function to get configured data adapter."""
-    return SensorDataAdapter(data_dir="data/")
+
+class SimulatedSource(DataSource):
+    """模拟数据源"""
+    
+    def __init__(self, seed: int = 42):
+        np.random.seed(seed)
+    
+    def get_readings(self, station_id: str, hours: int = 24) -> pd.DataFrame:
+        """生成模拟读数"""
+        timestamps = pd.date_range(end=datetime.now(), periods=hours, freq='h')
+        
+        # 模拟"大水大沙"黄河特征
+        base_water_level = 1000 + 50 * np.sin(np.arange(hours) * 2 * np.pi / 168)  # 周期变化
+        water_level = base_water_level + np.random.normal(0, 5, hours)
+        
+        # 泥沙浓度与流量正相关
+        base_discharge = 1500 + 300 * np.sin(np.arange(hours) * 2 * np.pi / 168)
+        discharge = base_discharge + np.random.normal(0, 50, hours)
+        
+        # 泥沙滞后于流量峰值
+        sediment_lag = 6  # 6 小时滞后
+        base_sediment = 50 + 30 * np.sin(np.arange(hours) * 2 * np.pi / 168)
+        # 创建滞后效果：前 sediment_lag 小时为 0，后面为滞后的基础沙量
+        sediment_concentration = np.concatenate([
+            np.zeros(sediment_lag),
+            base_sediment[:-sediment_lag]
+        ]) + np.random.normal(0, 5, hours)
+        
+        df = pd.DataFrame({
+            'timestamp': timestamps,
+            'station_id': station_id,
+            'water_level': np.maximum(water_level, 800),
+            'discharge': np.maximum(discharge, 500),
+            'sediment_concentration': np.maximum(sediment_concentration, 0),
+            'temperature': 15 + 10 * np.sin(np.arange(hours) * 2 * np.pi / 168) + np.random.normal(0, 2, hours),
+            'rainfall': np.maximum(np.random.exponential(2, hours), 0)
+        })
+        
+        return df
+    
+    def get_latest_reading(self, station_id: str) -> Dict:
+        """获取最新模拟读数"""
+        df = self.get_readings(station_id, hours=1)
+        if not df.empty:
+            latest = df.iloc[-1].to_dict()
+            return latest
+        return {}
 
 
-if __name__ == "__main__":
-    # Test the adapter
+class DataAdapter:
+    """统一数据适配器"""
+    
+    STATIONS = {
+        'HYD_001': {'name': '兰州', 'lat': 36.0611, 'lon': 103.8343},
+        'HYD_002': {'name': '河口镇', 'lat': 35.7897, 'lon': 110.2406},
+        'HYD_003': {'name': '龙门', 'lat': 35.1064, 'lon': 110.5921},
+        'HYD_004': {'name': '三门峡', 'lat': 34.7753, 'lon': 111.1934},
+        'HYD_005': {'name': '花园口', 'lat': 34.9031, 'lon': 113.1889},
+    }
+    
+    ALERT_THRESHOLDS = {
+        'normal_max_water_level': 1000,
+        'warning_water_level': 1100,
+        'critical_water_level': 1200,
+        'sediment_concentration_warning': 100,  # kg/m³
+    }
+    
+    def __init__(self, db_path: str = "data/autopilot.db", 
+                 csv_dir: str = "data/archive/",
+                 use_simulated: bool = True):
+        self.sources: List[DataSource] = []
+        
+        # 优先级顺序
+        self.sources.append(SQLiteSource(db_path))
+        self.sources.append(CSVSource(csv_dir))
+        if use_simulated:
+            self.sources.append(SimulatedSource())
+    
+    def get_latest_readings(self, hours: int = 24, 
+                           station_ids: Optional[List[str]] = None) -> pd.DataFrame:
+        """获取所有站点的最新读数"""
+        if station_ids is None:
+            station_ids = list(self.STATIONS.keys())
+        
+        all_data = []
+        
+        for station_id in station_ids:
+            for source in self.sources:
+                try:
+                    df = source.get_readings(station_id, hours=hours)
+                    if not df.empty:
+                        all_data.append(df)
+                        break  # 获取到数据就停止
+                except Exception as e:
+                    logger.debug(f"从 {source.__class__.__name__} 获取数据失败: {e}")
+                    continue
+        
+        if all_data:
+            return pd.concat(all_data, ignore_index=True).sort_values('timestamp')
+        
+        # 回退到模拟数据
+        logger.warning("无法获取真实数据，使用模拟数据")
+        simulated = SimulatedSource()
+        dfs = [simulated.get_readings(sid, hours=hours) for sid in station_ids]
+        return pd.concat(dfs, ignore_index=True).sort_values('timestamp')
+    
+    def get_station_status(self) -> Dict[str, Dict]:
+        """获取站点状态及警报"""
+        status = {}
+        
+        for station_id in self.STATIONS.keys():
+            for source in self.sources:
+                try:
+                    reading = source.get_latest_reading(station_id)
+                    if reading:
+                        status[station_id] = self._compute_status(reading)
+                        break
+                except:
+                    continue
+            
+            if station_id not in status:
+                # 使用模拟数据
+                sim_source = SimulatedSource()
+                reading = sim_source.get_latest_reading(station_id)
+                status[station_id] = self._compute_status(reading)
+        
+        return status
+    
+    def _compute_status(self, reading: Dict) -> Dict:
+        """计算站点状态"""
+        water_level = reading.get('water_level', 0)
+        sediment = reading.get('sediment_concentration', 0)
+        timestamp = reading.get('timestamp', datetime.now())
+        
+        # 确定水位状态
+        if water_level >= self.ALERT_THRESHOLDS['critical_water_level']:
+            water_status = '🔴 临界'
+        elif water_level >= self.ALERT_THRESHOLDS['warning_water_level']:
+            water_status = '🟡 警告'
+        else:
+            water_status = '🟢 正常'
+        
+        # 确定泥沙状态
+        if sediment >= self.ALERT_THRESHOLDS['sediment_concentration_warning']:
+            sediment_status = '⚠️ 高浓度'
+        else:
+            sediment_status = '✓ 正常'
+        
+        return {
+            'station_id': reading.get('station_id'),
+            'station_name': self.STATIONS.get(reading.get('station_id'), {}).get('name'),
+            'water_level': water_level,
+            'water_status': water_status,
+            'discharge': reading.get('discharge', 0),
+            'sediment_concentration': sediment,
+            'sediment_status': sediment_status,
+            'temperature': reading.get('temperature', 0),
+            'rainfall': reading.get('rainfall', 0),
+            'timestamp': timestamp,
+        }
+    
+    def get_prediction_inputs(self, station_id: str, 
+                             sequence_length: int = 24) -> Tuple[np.ndarray, Dict]:
+        """获取预测输入张量"""
+        df = self.get_latest_readings(hours=sequence_length * 2, station_ids=[station_id])
+        
+        if df.empty:
+            return np.zeros((sequence_length, 6)), {}
+        
+        # 特征标准化
+        features = ['water_level', 'discharge', 'sediment_concentration', 
+                   'temperature', 'rainfall']
+        
+        # 取最后 sequence_length 个数据点
+        df = df.tail(sequence_length).reset_index(drop=True)
+        
+        # 填充缺失值
+        for feat in features:
+            if feat not in df.columns:
+                df[feat] = 0
+            df[feat].fillna(df[feat].mean(), inplace=True)
+        
+        # 标准化
+        features_array = df[features].values.astype(np.float32)
+        feature_stats = {
+            'mean': features_array.mean(axis=0),
+            'std': features_array.std(axis=0) + 1e-8,
+        }
+        features_array = (features_array - feature_stats['mean']) / feature_stats['std']
+        
+        # 添加时间特征
+        df['hour'] = pd.to_datetime(df['timestamp']).dt.hour / 24.0
+        
+        # 合并成输入张量（sequence_length, 6）
+        inputs = np.column_stack([
+            features_array,
+            df['hour'].values.reshape(-1, 1)
+        ])
+        
+        return inputs.astype(np.float32), feature_stats
+    
+    def get_historical_extremes(self, station_id: str, 
+                               year: int = 2021) -> pd.DataFrame:
+        """获取历史极端事件数据"""
+        csv_dir = Path("data/archive/")
+        
+        # 查找包含年份的历史数据
+        extreme_files = list(csv_dir.glob(f"*{year}*{station_id}*.csv"))
+        
+        dfs = []
+        for f in extreme_files:
+            try:
+                df = pd.read_csv(f)
+                dfs.append(df)
+            except:
+                pass
+        
+        if dfs:
+            return pd.concat(dfs, ignore_index=True)
+        
+        # 如果没有找到，生成模拟极端数据
+        logger.warning(f"未找到 {year} 年 {station_id} 的历史数据，生成模拟极端洪水数据")
+        df = self._generate_extreme_event(station_id, year)
+        return df
+    
+    def _generate_extreme_event(self, station_id: str, year: int) -> pd.DataFrame:
+        """生成模拟极端洪水数据"""
+        # 模拟 2021 年极端洪水
+        timestamps = pd.date_range(start=f'{year}-07-01', end=f'{year}-09-30', freq='h')
+        n = len(timestamps)
+        
+        # 极端洪水特征：高水位 + 高泥沙
+        water_level = 1300 + 200 * np.sin(np.arange(n) * 2 * np.pi / n) + np.random.normal(0, 20, n)
+        discharge = 5000 + 1000 * np.sin(np.arange(n) * 2 * np.pi / n) + np.random.normal(0, 100, n)
+        sediment = 300 + 100 * np.sin(np.arange(n) * 2 * np.pi / n) + np.random.normal(0, 30, n)
+        
+        df = pd.DataFrame({
+            'timestamp': timestamps,
+            'station_id': station_id,
+            'water_level': np.maximum(water_level, 1000),
+            'discharge': np.maximum(discharge, 2000),
+            'sediment_concentration': np.maximum(sediment, 0),
+            'temperature': 25 + np.random.normal(0, 3, n),
+            'rainfall': np.maximum(np.random.exponential(5, n), 0),
+        })
+        
+        return df
+
+
+# 全局单例
+_adapter_instance = None
+
+
+def get_data_adapter() -> DataAdapter:
+    """获取全局数据适配器实例"""
+    global _adapter_instance
+    if _adapter_instance is None:
+        _adapter_instance = DataAdapter()
+    return _adapter_instance
+
+
+if __name__ == '__main__':
+    # 测试
     logging.basicConfig(level=logging.INFO)
     
     adapter = get_data_adapter()
     
-    print("\n=== Latest Readings ===")
-    df = adapter.get_latest_readings(hours=6)
-    print(df.head(10))
+    # 测试获取最新读数
+    print("=== 最新读数 ===")
+    latest = adapter.get_latest_readings(hours=24)
+    print(latest.head())
     
-    print("\n=== Station Status ===")
+    # 测试获取站点状态
+    print("\n=== 站点状态 ===")
     status = adapter.get_station_status()
-    print(status)
+    for sid, info in status.items():
+        print(f"{info['station_name']}: {info['water_status']} | {info['sediment_status']}")
     
-    print("\n=== Prediction Inputs ===")
-    inputs = adapter.get_prediction_inputs('HYD_001')
-    print(json.dumps(inputs, indent=2, ensure_ascii=False))
+    # 测试获取预测输入
+    print("\n=== 预测输入 ===")
+    inputs, stats = adapter.get_prediction_inputs('HYD_001')
+    print(f"输入形状: {inputs.shape}")
+    print(f"特征统计: {stats}")

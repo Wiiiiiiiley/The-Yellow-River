@@ -1,66 +1,61 @@
-# Evolution Engine Configuration
-# ==============================
-# Autonomous self-improvement settings for continuous model evolution
-
+# 进化引擎配置
 evolution:
-  enabled: true
-  
-  # Error Detection
-  anomaly_detection:
-    error_threshold: 0.15        # 15% prediction error threshold
-    physics_threshold: 1.0         # Physics residual threshold
-    window_size: 100              # Rolling statistics window
-    
-  # Hard Examples Storage
-  hard_examples:
-    min_buffer_size: 50           # Trigger retraining when reached
-    max_buffer_size: 500          # Max examples to keep
-    save_path: "data/evolution/hard_examples.json"
-    
-  # Auto-Calibration
-  calibration:
+  # 错误反馈循环
+  error_monitoring:
     enabled: true
-    initial_S0: 0.001             # Initial bed slope
-    initial_B: 50.0               # Initial channel width
+    check_frequency: 3600  # 秒
+    error_threshold: 0.15  # 15% RMSE
+  
+  # 困难样本挖掘
+  hard_sample_mining:
+    enabled: true
+    error_percentile: 90
+    sample_ratio: 0.2
+  
+  # 自动校准
+  physics_calibration:
+    enabled: true
+    residual_threshold: 0.1
     learning_rate: 0.001
-    window_hours: 48              # Data window for calibration
-    interval_hours: 24            # Check interval
-    
-    # Physical parameter bounds
-    S0_bounds: [0.0001, 0.01]
-    B_bounds: [20.0, 100.0]
-    
-  # Incremental Learning
+    iterations: 100
+    params_to_calibrate:
+      - "manning_coefficient"  # 曼宁系数
+      - "bed_slope"             # 河床坡度
+      - "river_width"           # 河宽
+  
+  # 增量学习
   incremental_learning:
     enabled: true
-    min_hard_examples: 50         # Min examples to trigger retrain
-    learning_rate: 1.0e-5         # Low LR for fine-tuning
-    batch_size: 16
-    max_epochs: 10
-    patience: 3                   # Early stopping patience
-    
-    # Which layers to update
-    trainable_layers:
-      - "attention"              # Only update attention layers
-      - "temporal"
-    
-    freeze_others: true
-    
-  # Model Versioning
-  versioning:
+    learning_rate_ratio: 0.1  # 相对原 LR 的 10%
+    layers_to_finetune:
+      - "transformer_encoder"
+      - "spatial_attention"
+  
+  # A/B 测试
+  ab_testing:
     enabled: true
-    models_dir: "models/evolution/"
-    promotion_threshold: 0.05     # 5% improvement required
-    keep_versions: 5              # Number of versions to keep
-    
-  # Evolution Reporting
-  reporting:
+    improvement_threshold: 0.05  # 5% 性能提升
+    test_duration: 86400  # 秒（1 天）
+    max_concurrent_models: 2
+  
+  # 进化轨迹
+  evolution_tracking:
     enabled: true
-    report_interval_hours: 24
-    dashboard_update: true
-    save_path: "results/evolution/"
-    
-  # Background Thread
-  threading:
-    check_interval_sec: 60        # Evolution loop interval
-    daemon: true                  # Run as daemon thread
+    save_history: true
+    history_file: "results/evolution_history.json"
+    visualization: true
+
+# 版本管理
+versioning:
+  major: 2
+  minor: 0
+  patch: 0
+  build_counter: 0
+  version_format: "v{major}.{minor}.{patch}-Evolved"
+
+# 性能基准
+benchmarks:
+  target_latency: 60  # 秒
+  target_physics_residual: 0.1
+  target_model_divergence: 0.10  # 10%
+  target_rl_throughput: 500  # steps/s

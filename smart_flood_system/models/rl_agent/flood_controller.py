@@ -1,480 +1,417 @@
 """
-Reinforcement Learning Agent for Flood Control
-==============================================
-
-Implements PPO (Proximal Policy Optimization) for learning optimal
-reservoir discharge policies. The agent learns to:
-- Maintain water levels within safe bounds
-- Minimize downstream flooding risk
-- Optimize sediment transport
-
-State Space: Current water levels, inflow rates, forecasted rainfall
-Action Space: Discharge rate adjustments (m³/s)
-Reward: Combination of safety margin, operational cost, and flood penalty
+RL 强化学习控制器 - PPO 算法
+用于学习最优泄洪策略
 """
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
-from typing import Tuple, List, Dict, Optional
-import gym
-from gym import spaces
+from typing import Tuple, Dict, List
+from collections import deque
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class FloodControlEnv(gym.Env):
-    """
-    OpenAI Gym environment for flood control decision making.
+class ActorNetwork(nn.Module):
+    """策略网络 - 输出泄洪动作"""
     
-    The environment simulates a simplified hydraulic system where:
-    - State: Water levels at multiple stations, inflow rates, rainfall forecasts
-    - Action: Discharge rate adjustments (positive=release, negative=store)
-    - Reward: Safety margin minus operational costs
-    """
+    def __init__(self, state_dim: int, action_dim: int, 
+                 hidden_dim: int = 256, dropout: float = 0.1):
+        super(ActorNetwork, self).__init__()
+        
+        self.fc1 = nn.Linear(state_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        
+        # 输出均值和标准差
+        self.mean = nn.Linear(hidden_dim, action_dim)
+        self.log_std = nn.Parameter(torch.zeros(action_dim))
+        
+        self.dropout = nn.Dropout(dropout)
+        
+        # 初始化
+        self.mean.weight.data.mul_(0.1)
+        self.mean.bias.data.mul_(0.0)
     
-    def __init__(
-        self,
-        hydraulic_simulator,
-        max_steps: int = 168,  # 1 week in hours
-        target_level_range: Tuple[float, float] = (45.0, 55.0),
-        safety_constraints: Dict = None,
-        n_stations: int = 5
-    ):
-        super().__init__()
-        
-        self.simulator = hydraulic_simulator
-        self.max_steps = max_steps
-        self.target_level_range = target_level_range
-        self.safety_constraints = safety_constraints or {
-            'max_level': 65.0,  # Critical flood level
-            'min_level': 35.0,  # Drought level
-            'max_discharge': 5000.0,  # Max release capacity
-            'min_discharge': 500.0     # Min ecological flow
-        }
-        self.n_stations = n_stations
-        
-        # State: [water_levels (n), inflow (n), rain_forecast (n), time_features (4)]
-        self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(n_stations * 3 + 4,),
-            dtype=np.float32
-        )
-        
-        # Action: Discharge adjustments for each station
-        self.action_space = spaces.Box(
-            low=-1.0,
-            high=1.0,
-            shape=(n_stations,),
-            dtype=np.float32
-        )
-        
-        self.current_step = 0
-        self.current_state = None
-        self.done = False
-        
-    def reset(self) -> np.ndarray:
-        """Reset environment to initial state."""
-        self.current_step = 0
-        self.done = False
-        
-        # Initialize with random but reasonable initial conditions
-        initial_levels = np.random.uniform(40.0, 60.0, self.n_stations)
-        initial_inflow = np.random.uniform(1000.0, 3000.0, self.n_stations)
-        initial_rain = np.random.uniform(0.0, 5.0, self.n_stations)
-        
-        time_features = self._get_time_features()
-        
-        self.current_state = np.concatenate([
-            initial_levels,
-            initial_inflow,
-            initial_rain,
-            time_features
-        ])
-        
-        return self.current_state
-    
-    def _get_time_features(self) -> np.ndarray:
-        """Encode temporal information (hour, day of week, month, is_weekend)."""
-        hour = (self.current_step % 24) / 24.0
-        day_of_week = ((self.current_step // 24) % 7) / 7.0
-        month = ((self.current_step // (24 * 30)) % 12) / 12.0
-        is_weekend = 1.0 if ((self.current_step // 24) % 7) >= 5 else 0.0
-        
-        return np.array([hour, day_of_week, month, is_weekend])
-    
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict]:
+    def forward(self, state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Execute one time step.
-        
         Args:
-            action: Discharge adjustments (-1 to 1), will be scaled to actual discharge
+            state: (batch_size, state_dim)
         
         Returns:
-            next_state, reward, done, info
+            mean: (batch_size, action_dim)
+            std: (batch_size, action_dim)
         """
-        # Scale action to actual discharge rates
-        discharge = self._action_to_discharge(action)
+        x = F.relu(self.fc1(state))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
         
-        # Simulate hydraulic response (simplified)
-        next_levels, next_inflow = self.simulator.step(
-            self.current_state[:self.n_stations],
-            discharge,
-            self.current_state[self.n_stations:2*self.n_stations]
-        )
+        mean = self.mean(x)
+        std = torch.exp(self.log_std).unsqueeze(0).expand_as(mean)
         
-        # Update rain forecast (simplified random walk)
-        current_rain = self.current_state[2*self.n_stations:3*self.n_stations]
-        next_rain = np.clip(current_rain + np.random.randn(self.n_stations) * 0.5, 0, 10)
-        
-        # Update state
-        self.current_step += 1
-        time_features = self._get_time_features()
-        
-        self.current_state = np.concatenate([
-            next_levels,
-            next_inflow,
-            next_rain,
-            time_features
-        ])
-        
-        # Compute reward
-        reward = self._compute_reward(next_levels, discharge)
-        
-        # Check termination
-        self.done = (
-            self.current_step >= self.max_steps or
-            np.any(next_levels > self.safety_constraints['max_level']) or
-            np.any(next_levels < self.safety_constraints['min_level'])
-        )
-        
-        info = {
-            'water_levels': next_levels,
-            'discharge': discharge,
-            'step': self.current_step,
-            'is_emergency': np.any(next_levels > 60.0)
-        }
-        
-        return self.current_state, reward, self.done, info
+        return mean, std
     
-    def _action_to_discharge(self, action: np.ndarray) -> np.ndarray:
-        """Convert normalized action to actual discharge rate."""
-        # Scale from [-1, 1] to [min_discharge, max_discharge]
-        min_d = self.safety_constraints['min_discharge']
-        max_d = self.safety_constraints['max_discharge']
-        return (action + 1) / 2 * (max_d - min_d) + min_d
+    def get_action(self, state: torch.Tensor, deterministic: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+        """从高斯分布采样动作"""
+        mean, std = self.forward(state)
+        
+        if deterministic:
+            return mean, torch.log(std)
+        
+        # 从 N(mean, std^2) 采样
+        action = torch.normal(mean, std)
+        
+        # 计算 log_prob
+        log_prob = self._compute_log_prob(action, mean, std)
+        
+        return action, log_prob
     
-    def _compute_reward(self, water_levels: np.ndarray, discharge: np.ndarray) -> float:
-        """
-        Compute reward based on:
-        - Staying within target range (primary)
-        - Avoiding extreme levels (safety)
-        - Minimizing unnecessary discharge (efficiency)
-        """
-        target_center = (self.target_level_range[0] + self.target_level_range[1]) / 2
-        
-        # Level deviation from target
-        level_deviation = np.mean(np.abs(water_levels - target_center))
-        level_reward = -level_deviation
-        
-        # Safety penalty for levels outside safe range
-        safety_penalty = 0.0
-        if np.any(water_levels > self.safety_constraints['max_level']):
-            safety_penalty -= 100.0  # Heavy penalty
-        if np.any(water_levels < self.safety_constraints['min_level']):
-            safety_penalty -= 50.0
-        
-        # Operational cost (penalty for large discharge changes)
-        discharge_cost = -0.001 * np.sum(discharge ** 2)
-        
-        total_reward = level_reward + safety_penalty + discharge_cost
-        
-        return float(total_reward)
-
-
-class ActorCriticNetwork(nn.Module):
-    """Shared network for policy (actor) and value (critic)."""
-    
-    def __init__(
-        self,
-        state_dim: int,
-        action_dim: int,
-        hidden_dims: List[int] = [256, 256, 128]
-    ):
-        super().__init__()
-        
-        # Shared feature extractor
-        layers = []
-        prev_dim = state_dim
-        for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.ReLU(),
-                nn.LayerNorm(hidden_dim)
-            ])
-            prev_dim = hidden_dim
-        
-        self.feature_extractor = nn.Sequential(*layers)
-        
-        # Actor head (policy)
-        self.actor_mean = nn.Linear(prev_dim, action_dim)
-        self.actor_log_std = nn.Parameter(torch.zeros(action_dim))
-        
-        # Critic head (value)
-        self.critic = nn.Linear(prev_dim, 1)
-        
-    def forward(self, state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Returns:
-            action_mean: (batch, action_dim)
-            action_std: (batch, action_dim)
-            value: (batch, 1)
-        """
-        features = self.feature_extractor(state)
-        
-        # Actor output
-        action_mean = torch.tanh(self.actor_mean(features))
-        action_std = torch.exp(self.actor_log_std).expand_as(action_mean)
-        
-        # Critic output
-        value = self.critic(features)
-        
-        return action_mean, action_std, value
-    
-    def evaluate(self, state: torch.Tensor, action: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Evaluate action for PPO update."""
-        mean, std, value = self.forward(state)
-        
-        # Compute log probability
+    def _compute_log_prob(self, action: torch.Tensor, mean: torch.Tensor, 
+                         std: torch.Tensor) -> torch.Tensor:
+        """计算动作的对数概率"""
         var = std ** 2
-        log_prob = -0.5 * (
-            ((action - mean) ** 2) / var + 
-            2 * torch.log(std) + 
-            np.log(2 * np.pi)
-        )
-        log_prob = log_prob.sum(dim=-1, keepdim=True)
+        log_prob = -0.5 * ((action - mean) ** 2 / var + 2 * torch.log(std))
+        log_prob = log_prob.sum(-1)
+        return log_prob
+
+
+class CriticNetwork(nn.Module):
+    """价值网络 - 估计状态价值"""
+    
+    def __init__(self, state_dim: int, hidden_dim: int = 256, dropout: float = 0.1):
+        super(CriticNetwork, self).__init__()
         
-        return log_prob, value
+        self.fc1 = nn.Linear(state_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.value = nn.Linear(hidden_dim, 1)
+        
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            state: (batch_size, state_dim)
+        
+        Returns:
+            value: (batch_size, 1)
+        """
+        x = F.relu(self.fc1(state))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        
+        value = self.value(x)
+        
+        return value
 
 
 class PPOAgent:
-    """
-    PPO (Proximal Policy Optimization) agent for flood control.
+    """PPO (Proximal Policy Optimization) 智能体"""
     
-    PPO is chosen for its:
-    - Sample efficiency
-    - Stability (clipped objective prevents large policy updates)
-    - Good performance on continuous control tasks
-    """
-    
-    def __init__(
-        self,
-        state_dim: int,
-        action_dim: int,
-        lr: float = 3e-4,
-        gamma: float = 0.99,
-        gae_lambda: float = 0.95,
-        clip_epsilon: float = 0.2,
-        value_coef: float = 0.5,
-        entropy_coef: float = 0.01,
-        hidden_dims: List[int] = [256, 256, 128],
-        batch_size: int = 64,
-        epochs_per_update: int = 10
-    ):
+    def __init__(self,
+                 state_dim: int = 19,
+                 action_dim: int = 5,
+                 hidden_dim: int = 256,
+                 learning_rate: float = 3e-4,
+                 gamma: float = 0.99,
+                 gae_lambda: float = 0.95,
+                 clip_ratio: float = 0.2,
+                 entropy_coeff: float = 0.01,
+                 device: str = 'cpu'):
+        
         self.state_dim = state_dim
         self.action_dim = action_dim
+        self.device = device
         self.gamma = gamma
         self.gae_lambda = gae_lambda
-        self.clip_epsilon = clip_epsilon
-        self.value_coef = value_coef
-        self.entropy_coef = entropy_coef
-        self.batch_size = batch_size
-        self.epochs_per_update = epochs_per_update
+        self.clip_ratio = clip_ratio
+        self.entropy_coeff = entropy_coeff
         
-        # Initialize network
-        self.network = ActorCriticNetwork(state_dim, action_dim, hidden_dims)
-        self.optimizer = optim.Adam(self.network.parameters(), lr=lr)
+        # 网络
+        self.actor = ActorNetwork(state_dim, action_dim, hidden_dim).to(device)
+        self.critic = CriticNetwork(state_dim, hidden_dim).to(device)
         
-        # Replay buffer
-        self.buffer = []
+        # 优化器
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=learning_rate)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=learning_rate)
         
-    def select_action(self, state: np.ndarray, deterministic: bool = False) -> Tuple[np.ndarray, float, float]:
-        """Select action given state."""
+        # 经验缓冲区
+        self.states = deque(maxlen=2000)
+        self.actions = deque(maxlen=2000)
+        self.rewards = deque(maxlen=2000)
+        self.values = deque(maxlen=2000)
+        self.log_probs = deque(maxlen=2000)
+        self.dones = deque(maxlen=2000)
+    
+    def select_action(self, state: np.ndarray, deterministic: bool = False) -> Tuple[np.ndarray, float]:
+        """选择动作"""
+        state_tensor = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+        
         with torch.no_grad():
-            state_tensor = torch.FloatTensor(state).unsqueeze(0)
-            mean, std, value = self.network(state_tensor)
-            
-            if deterministic:
-                action = mean
-            else:
-                # Sample from Gaussian
-                dist = torch.distributions.Normal(mean, std)
-                action = dist.sample()
-            
-            # Compute log probability
-            log_prob = torch.distributions.Normal(mean, std).log_prob(action).sum()
-            
-        return action.squeeze(0).numpy(), log_prob.item(), value.item()
+            action, log_prob = self.actor.get_action(state_tensor, deterministic=deterministic)
+            value = self.critic(state_tensor)
+        
+        action = action.squeeze(0).detach().cpu().numpy()
+        log_prob = log_prob.squeeze(0).detach().cpu().numpy()
+        value = value.squeeze(0).item()
+        
+        # 夹住动作在合理范围
+        action = np.clip(action, -1.0, 1.0)
+        
+        return action, log_prob, value
     
-    def store_transition(
-        self,
-        state: np.ndarray,
-        action: np.ndarray,
-        reward: float,
-        next_state: np.ndarray,
-        done: bool,
-        log_prob: float,
-        value: float
-    ):
-        """Store transition in buffer."""
-        self.buffer.append({
-            'state': state,
-            'action': action,
-            'reward': reward,
-            'next_state': next_state,
-            'done': done,
-            'log_prob': log_prob,
-            'value': value
-        })
+    def store_transition(self, state: np.ndarray, action: np.ndarray, 
+                        reward: float, value: float, log_prob: float, done: bool):
+        """存储经验"""
+        self.states.append(state)
+        self.actions.append(action)
+        self.rewards.append(reward)
+        self.values.append(value)
+        self.log_probs.append(log_prob)
+        self.dones.append(done)
     
-    def compute_gae(self, rewards: List[float], values: List[float], dones: List[bool]) -> Tuple[List[float], List[float]]:
-        """Compute Generalized Advantage Estimation."""
-        advantages = []
-        gae = 0
+    def compute_gae(self, next_value: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
+        """计算广义优势估计 (GAE)"""
         
-        for t in reversed(range(len(rewards))):
-            if t == len(rewards) - 1:
-                next_value = 0
-            else:
-                next_value = values[t + 1]
-            
-            delta = rewards[t] + self.gamma * next_value * (1 - dones[t]) - values[t]
-            gae = delta + self.gamma * self.gae_lambda * (1 - dones[t]) * gae
-            advantages.insert(0, gae)
+        rewards = np.array(self.rewards)
+        values = np.array(self.values)
+        dones = np.array(self.dones)
         
-        # Compute returns (advantages + values)
-        returns = [adv + val for adv, val in zip(advantages, values)]
+        # 添加下一个状态的价值
+        values = np.append(values, next_value)
         
-        return advantages, returns
-    
-    def update(self) -> Dict[str, float]:
-        """Update policy using PPO."""
-        if len(self.buffer) < self.batch_size:
-            return {}
+        # 计算 TD 残差
+        deltas = rewards + self.gamma * values[1:] * (1 - dones) - values[:-1]
         
-        # Extract data from buffer
-        states = torch.FloatTensor([t['state'] for t in self.buffer])
-        actions = torch.FloatTensor([t['action'] for t in self.buffer])
-        old_log_probs = torch.FloatTensor([t['log_prob'] for t in self.buffer])
-        rewards = [t['reward'] for t in self.buffer]
-        dones = [t['done'] for t in self.buffer]
-        values = [t['value'] for t in self.buffer]
+        # 计算 GAE
+        advantages = np.zeros_like(deltas)
+        advantage = 0
+        for t in reversed(range(len(deltas))):
+            advantage = deltas[t] + self.gamma * self.gae_lambda * (1 - dones[t]) * advantage
+            advantages[t] = advantage
         
-        # Compute advantages and returns
-        advantages, returns = self.compute_gae(rewards, values, dones)
-        advantages = torch.FloatTensor(advantages)
-        returns = torch.FloatTensor(returns)
+        # 计算回报
+        returns = advantages + values[:-1]
         
-        # Normalize advantages
+        # 标准化优势
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         
-        # PPO update
-        total_policy_loss = 0
-        total_value_loss = 0
-        total_entropy = 0
+        return returns, advantages
+    
+    def update(self, batch_size: int = 64, epochs: int = 3):
+        """更新策略和价值网络"""
         
-        for _ in range(self.epochs_per_update):
-            # Re-evaluate actions
-            new_log_probs, new_values = self.network.evaluate(states, actions)
-            
-            # Compute ratio and clipped surrogate objective
-            ratio = torch.exp(new_log_probs - old_log_probs)
-            
-            # Clipped surrogate
-            surr1 = ratio * advantages
-            surr2 = torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon) * advantages
-            policy_loss = -torch.min(surr1, surr2).mean()
-            
-            # Value loss
-            value_loss = 0.5 * ((new_values.squeeze() - returns) ** 2).mean()
-            
-            # Entropy bonus
-            mean, std, _ = self.network(states)
-            entropy = torch.distributions.Normal(mean, std).entropy().mean()
-            
-            # Total loss
-            loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy
-            
-            # Update
-            self.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 0.5)
-            self.optimizer.step()
-            
-            total_policy_loss += policy_loss.item()
-            total_value_loss += value_loss.item()
-            total_entropy += entropy.item()
+        if len(self.states) < batch_size:
+            return
         
-        # Clear buffer
-        self.buffer.clear()
+        # 转换为张量
+        states = torch.from_numpy(np.array(list(self.states))).float().to(self.device)
+        actions = torch.from_numpy(np.array(list(self.actions))).float().to(self.device)
+        old_log_probs = torch.from_numpy(np.array(list(self.log_probs))).float().to(self.device)
         
-        return {
-            'policy_loss': total_policy_loss / self.epochs_per_update,
-            'value_loss': total_value_loss / self.epochs_per_update,
-            'entropy': total_entropy / self.epochs_per_update
-        }
+        # 计算回报和优势
+        returns, advantages = self.compute_gae()
+        returns = torch.from_numpy(returns).float().to(self.device)
+        advantages = torch.from_numpy(advantages).float().to(self.device)
+        
+        # 训练前的旧值（用于计算价值损失）
+        with torch.no_grad():
+            old_values = self.critic(states).squeeze(-1)
+        
+        # 多个 epoch 更新
+        indices = np.arange(len(states))
+        
+        for epoch in range(epochs):
+            np.random.shuffle(indices)
+            
+            for i in range(0, len(states), batch_size):
+                batch_indices = indices[i:i + batch_size]
+                
+                batch_states = states[batch_indices]
+                batch_actions = actions[batch_indices]
+                batch_old_log_probs = old_log_probs[batch_indices]
+                batch_returns = returns[batch_indices]
+                batch_advantages = advantages[batch_indices]
+                batch_old_values = old_values[batch_indices]
+                
+                # 计算新的 log_probs 和熵
+                mean, std = self.actor.fc1 = nn.Linear(self.state_dim, 256)
+                # 实际获取新概率
+                _, new_log_probs = self.actor.get_action(batch_states)
+                new_log_probs = new_log_probs.squeeze(-1)
+                
+                # 计算策略比率
+                ratio = torch.exp(new_log_probs - batch_old_log_probs)
+                
+                # 裁剪的策略目标
+                surr1 = ratio * batch_advantages
+                surr2 = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * batch_advantages
+                policy_loss = -torch.min(surr1, surr2).mean()
+                
+                # 价值网络损失
+                new_values = self.critic(batch_states).squeeze(-1)
+                value_loss = F.mse_loss(new_values, batch_returns)
+                
+                # 总损失
+                total_loss = policy_loss + 0.5 * value_loss
+                
+                # 更新策略网络
+                self.actor_optimizer.zero_grad()
+                policy_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
+                self.actor_optimizer.step()
+                
+                # 更新价值网络
+                self.critic_optimizer.zero_grad()
+                value_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
+                self.critic_optimizer.step()
+        
+        # 清空缓冲区
+        self.states.clear()
+        self.actions.clear()
+        self.rewards.clear()
+        self.values.clear()
+        self.log_probs.clear()
+        self.dones.clear()
     
     def save(self, path: str):
-        """Save agent checkpoint."""
+        """保存模型"""
         torch.save({
-            'network': self.network.state_dict(),
-            'optimizer': self.optimizer.state_dict()
+            'actor_state_dict': self.actor.state_dict(),
+            'critic_state_dict': self.critic.state_dict(),
         }, path)
+        logger.info(f"模型已保存到 {path}")
     
     def load(self, path: str):
-        """Load agent checkpoint."""
-        checkpoint = torch.load(path)
-        self.network.load_state_dict(checkpoint['network'])
-        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        """加载模型"""
+        checkpoint = torch.load(path, map_location=self.device)
+        self.actor.load_state_dict(checkpoint['actor_state_dict'])
+        self.critic.load_state_dict(checkpoint['critic_state_dict'])
+        logger.info(f"模型已从 {path} 加载")
 
 
-if __name__ == "__main__":
-    """Unit test for RL components."""
-    print("Testing RL Flood Control System...")
+class FloodControlEnvironment:
+    """泄洪控制环境模拟器"""
     
-    from simulator.hydraulic_sim import FastHydraulicSimulator
-    
-    # Create environment
-    sim = FastHydraulicSimulator()
-    env = FloodControlEnv(sim, n_stations=5)
-    
-    # Create agent
-    state_dim = env.observation_space.shape[0]
-    action_dim = env.action_space.shape[0]
-    agent = PPOAgent(state_dim, action_dim)
-    
-    # Test episode
-    state = env.reset()
-    episode_reward = 0
-    
-    for step in range(50):
-        action, log_prob, value = agent.select_action(state)
-        next_state, reward, done, info = env.step(action)
+    def __init__(self, n_gates: int = 5):
+        self.n_gates = n_gates
+        self.current_water_level = np.array([1000.0] * n_gates)
+        self.current_discharge = np.array([1500.0] * n_gates)
+        self.current_step = 0
+        self.max_steps = 168  # 一周
         
-        agent.store_transition(state, action, reward, next_state, done, log_prob, value)
+        # 安全约束
+        self.safe_level = 1100.0
+        self.critical_level = 1200.0
+        self.min_discharge = 500.0
+        self.max_discharge = 5000.0
+    
+    def reset(self):
+        """重置环境"""
+        self.current_water_level = np.random.uniform(950, 1050, self.n_gates)
+        self.current_discharge = np.random.uniform(1000, 2000, self.n_gates)
+        self.current_step = 0
+        return self._get_state()
+    
+    def _get_state(self) -> np.ndarray:
+        """获取状态向量"""
+        state = np.concatenate([
+            self.current_water_level,  # 5
+            self.current_discharge,     # 5
+            np.random.randn(5),         # 预报降雨 5
+            np.array([self.current_step / self.max_steps] * 4)  # 时间特征 4
+        ])  # 总计 19 维
         
-        episode_reward += reward
-        state = next_state
+        return state.astype(np.float32)
+    
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool]:
+        """执行动作，返回新状态、奖励、是否结束"""
         
-        if done:
-            break
+        # 动作：调整各闸门的泄洪
+        discharge_adjustment = action * 500  # 最多调整 ±500
+        new_discharge = self.current_discharge + discharge_adjustment
+        new_discharge = np.clip(new_discharge, self.min_discharge, self.max_discharge)
+        
+        # 简单水温动态
+        inflow = np.random.uniform(1000, 2000, self.n_gates)
+        self.current_discharge = 0.7 * self.current_discharge + 0.3 * new_discharge
+        
+        # 水位变化
+        water_change = (inflow - self.current_discharge) / 100  # 简化模型
+        self.current_water_level += water_change
+        self.current_water_level = np.clip(self.current_water_level, 800, 1500)
+        
+        # 计算奖励
+        reward = self._compute_reward()
+        
+        # 检查是否完成
+        done = self.current_step >= self.max_steps
+        self.current_step += 1
+        
+        return self._get_state(), reward, done
     
-    print(f"Episode reward: {episode_reward:.2f}")
-    print(f"Final water levels: {info['water_levels']}")
+    def _compute_reward(self) -> float:
+        """计算结论"""
+        
+        reward = 0.0
+        
+        # 1. 防洪安全奖励
+        for level in self.current_water_level:
+            if level < self.safe_level:
+                reward += 1.0  # 安全
+            elif level < self.critical_level:
+                reward -= 2.0  # 警告
+            else:
+                reward -= 10.0  # 危险
+        
+        # 2. 运营成本（泄洪）
+        discharge_cost = np.mean(self.current_discharge) / 1000
+        reward -= discharge_cost * 0.1
+        
+        # 3. 流量平衡度
+        discharge_variance = np.std(self.current_discharge)
+        if discharge_variance < 500:
+            reward += 0.5
+        
+        return reward
+
+
+if __name__ == '__main__':
+    # 测试 PPO 智能体
+    logging.basicConfig(level=logging.INFO)
     
-    # Test update
-    if len(agent.buffer) >= agent.batch_size:
-        losses = agent.update()
-        print(f"Update losses: {losses}")
+    agent = PPOAgent(
+        state_dim=19,
+        action_dim=5,
+        hidden_dim=128,
+        learning_rate=3e-4
+    )
     
-    print("✓ RL system tests passed!")
+    env = FloodControlEnvironment(n_gates=5)
+    
+    # 训练
+    n_episodes = 10
+    for episode in range(n_episodes):
+        state = env.reset()
+        episode_reward = 0.0
+        
+        for step in range(100):
+            action, log_prob, value = agent.select_action(state)
+            next_state, reward, done = env.step(action)
+            
+            agent.store_transition(state, action, reward, value, log_prob, done)
+            episode_reward += reward
+            
+            if done:
+                break
+            
+            state = next_state
+        
+        # 更新策略
+        agent.update()
+        
+        print(f"Episode {episode + 1}: Total Reward = {episode_reward:.2f}")

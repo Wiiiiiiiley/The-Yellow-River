@@ -1,334 +1,343 @@
 """
-Physics-Informed Loss Functions for Saint-Venant Equations
-===========================================================
-
-Implements 1D Saint-Venant (shallow water) equations as soft constraints:
-1. Continuity Equation: ∂h/∂t + ∂(hu)/∂x = 0
-2. Momentum Equation: ∂u/∂t + u·∂u/∂x = g·∂h/∂x - g·(n²·u|u|/h^(4/3)) + g·S0
-
-These equations constrain the neural network outputs to satisfy physical laws,
-ensuring predictions remain physically plausible even in extrapolation regimes.
+PINN 物理约束损失函数
+基于 Saint-Venant 方程的物理信息神经网络
 """
 
 import torch
 import torch.nn as nn
-from typing import Dict, Tuple, Optional
+import torch.nn.functional as F
+import numpy as np
+from typing import Tuple, Optional
 
 
-class SaintVenantLoss(nn.Module):
+class PhysicsConstraintLoss(nn.Module):
     """
-    Physics loss based on 1D Saint-Venant (shallow water) equations.
+    Saint-Venant 方程物理约束
     
-    The loss penalizes violations of mass and momentum conservation,
-    effectively regularizing the model to learn physically consistent dynamics.
+    连续性方程: ∂h/∂t + ∂(hu)/∂x = 0
+    动量方程: ∂u/∂t + u·∂u/∂x = -g·∂h/∂x - f·u + g·S0
     
-    Args:
-        g: Gravitational acceleration (m/s²), default 9.8
-        n: Manning roughness coefficient, default 0.03
-        S0: Riverbed slope, default 0.001
-        B: Channel width (m), default 50.0
-        alpha_cont: Weight for continuity equation loss
-        alpha_mom: Weight for momentum equation loss
+    其中:
+        h: 水深
+        u: 流速
+        g: 重力加速度（9.81 m/s²）
+        f: 摩擦系数
+        S0: 河床坡度
     """
     
-    def __init__(
-        self,
-        g: float = 9.8,
-        n: float = 0.03,
-        S0: float = 0.001,
-        B: float = 50.0,
-        alpha_cont: float = 1.0,
-        alpha_mom: float = 1.0
-    ):
-        super().__init__()
+    def __init__(self, 
+                 manning_coefficient: float = 0.03,
+                 bed_slope: float = 0.0001,
+                 gravity: float = 9.81,
+                 river_width: float = 500.0,
+                 adaptive_weight: bool = True):
+        super(PhysicsConstraintLoss, self).__init__()
         
-        self.g = g
-        self.n = n
-        self.S0 = S0
-        self.B = B
-        self.alpha_cont = alpha_cont
-        self.alpha_mom = alpha_mom
+        self.manning = manning_coefficient
+        self.S0 = bed_slope
+        self.g = gravity
+        self.B = river_width
+        self.adaptive_weight = adaptive_weight
         
-        # Small epsilon for numerical stability
-        self.eps = 1e-6
-        
-    def compute_derivatives(
-        self,
-        h: torch.Tensor,
-        u: torch.Tensor,
-        x: torch.Tensor,
-        t: torch.Tensor
-    ) -> Dict[str, torch.Tensor]:
+        # 权重调度器
+        self.register_buffer('physics_weight', torch.tensor(0.5))
+    
+    def compute_continuity_loss(self, h: torch.Tensor, u: torch.Tensor,
+                               dt: float = 1.0, dx: float = 1000.0) -> torch.Tensor:
         """
-        Compute spatial and temporal derivatives using automatic differentiation.
+        计算连续性方程损失
+        ∂h/∂t + ∂(hu)/∂x = 0
         
         Args:
-            h: Water depth (batch, 1)
-            u: Flow velocity (batch, 1)
-            x: Spatial coordinate (batch, 1), requires_grad=True
-            t: Temporal coordinate (batch, 1), requires_grad=True
-        
-        Returns:
-            Dictionary of partial derivatives
+            h: 水位 (batch_size, seq_len, n_nodes)
+            u: 流速 (batch_size, seq_len, n_nodes)
+            dt: 时间步长
+            dx: 空间步长
         """
-        derivatives = {}
+        # 数值差分
+        dh_dt = (h[:, 1:, :] - h[:, :-1, :]) / dt  # ∂h/∂t
         
-        # ∂h/∂t
-        dh_dt = torch.autograd.grad(
-            outputs=h,
-            inputs=t,
-            grad_outputs=torch.ones_like(h),
-            create_graph=True,
-            retain_graph=True
-        )[0]
-        derivatives['dh_dt'] = dh_dt
+        hu = h * u  # 流量
+        dhu_dx = (hu[:, :, 1:] - hu[:, :, :-1]) / dx  # ∂(hu)/∂x
         
-        # ∂h/∂x
-        dh_dx = torch.autograd.grad(
-            outputs=h,
-            inputs=x,
-            grad_outputs=torch.ones_like(h),
-            create_graph=True,
-            retain_graph=True
-        )[0]
-        derivatives['dh_dx'] = dh_dx
+        # 连续性方程：应该满足 ∂h/∂t + ∂(hu)/∂x ≈ 0
+        continuity_error = dh_dt[:, :, :-1] + dhu_dx[:, 1:, :]
         
-        # ∂u/∂t
-        du_dt = torch.autograd.grad(
-            outputs=u,
-            inputs=t,
-            grad_outputs=torch.ones_like(u),
-            create_graph=True,
-            retain_graph=True
-        )[0]
-        derivatives['du_dt'] = du_dt
+        continuity_loss = torch.mean(continuity_error ** 2)
         
-        # ∂u/∂x
-        du_dx = torch.autograd.grad(
-            outputs=u,
-            inputs=x,
-            grad_outputs=torch.ones_like(u),
-            create_graph=True,
-            retain_graph=True
-        )[0]
-        derivatives['du_dx'] = du_dx
-        
-        # ∂(hu)/∂x = u·∂h/∂x + h·∂u/∂x (product rule)
-        derivatives['d_hu_dx'] = u * dh_dx + h * du_dx
-        
-        return derivatives
+        return continuity_loss
     
-    def forward(
-        self,
-        predictions: torch.Tensor,
-        data: 'torch_geometric.data.Data',
-        return_components: bool = False
-    ) -> torch.Tensor:
+    def compute_momentum_loss(self, u: torch.Tensor, h: torch.Tensor,
+                             dt: float = 1.0, dx: float = 1000.0) -> torch.Tensor:
         """
-        Compute physics-informed loss.
+        计算动量方程损失
+        ∂u/∂t + u·∂u/∂x = -g·∂h/∂x - friction + g·S0
         
         Args:
-            predictions: Model predictions (N, 2) [water_level, sediment]
-            data: PyG Data object with:
-                - x: Input features including [t, x_coord, flow_rate, ...]
-                - edge_index: Graph connectivity
-            return_components: If True, return individual loss components
-        
-        Returns:
-            Total physics loss (weighted sum of continuity and momentum losses)
+            u: 流速 (batch_size, seq_len, n_nodes)
+            h: 水位 (batch_size, seq_len, n_nodes)
+            dt: 时间步长
+            dx: 空间步长
         """
-        # Extract water level from predictions
-        h = predictions[:, 0:1]  # (N, 1)
+        # 时间导数
+        du_dt = (u[:, 1:, :] - u[:, :-1, :]) / dt  # ∂u/∂t
         
-        # Extract flow rate Q from input features (assuming Q is at index 2)
-        Q = data.x[:, 2:3]  # (N, 1)
+        # 对流项
+        du_dx = (u[:, :, 1:] - u[:, :, :-1]) / dx  # ∂u/∂x
+        convection = u[:, :, :-1] * du_dx[:, 1:, :]  # u·∂u/∂x
         
-        # Compute velocity: u = Q / (B·h) = Q / A
-        h_safe = torch.clamp(h, min=self.eps)
-        A = self.B * h_safe  # Cross-sectional area
-        u = Q / A  # Velocity
+        # 压力梯度
+        dh_dx = (h[:, :, 1:] - h[:, :, :-1]) / dx  # ∂h/∂x
+        pressure_gradient = -self.g * dh_dx[:, 1:, :]
         
-        # Extract coordinates and enable gradient tracking
-        t = data.x[:, 0:1].clone().requires_grad_(True)
-        x_coord = data.x[:, 1:2].clone().requires_grad_(True)
+        # 摩擦损失（曼宁公式）
+        # f·u = (g·n²·u²) / h^(1/3)
+        u_mid = (u[:, :, :-1] + u[:, :, 1:]) / 2
+        h_mid = (h[:, :, :-1] + h[:, :, 1:]) / 2
         
-        # Compute all required derivatives
-        derivatives = self.compute_derivatives(h_safe, u, x_coord, t)
+        # 避免数值问题
+        h_mid = torch.clamp(h_mid, min=0.1)
         
-        # === Continuity Equation: ∂h/∂t + ∂(hu)/∂x = 0 ===
-        residual_cont = derivatives['dh_dt'] + derivatives['d_hu_dx']
-        loss_continuity = torch.mean(residual_cont ** 2)
+        friction = -(self.g * self.manning ** 2 * torch.abs(u_mid) * u_mid[1:, :]) / (h_mid[1:, :] ** (1/3))
         
-        # === Momentum Equation ===
-        # LHS: ∂u/∂t + u·∂u/∂x (acceleration terms)
-        lhs_momentum = derivatives['du_dt'] + u * derivatives['du_dx']
+        # 河床坡度项
+        bed_slope_term = self.g * self.S0
         
-        # RHS: g·∂h/∂x - g·(n²·u|u|/h^(4/3)) + g·S0
-        # Pressure gradient term
-        pressure_grad = self.g * derivatives['dh_dx']
+        # 动量方程应该满足：
+        # ∂u/∂t + u·∂u/∂x ≈ -g·∂h/∂x - friction + g·S0
+        momentum_rhs = pressure_gradient + friction + bed_slope_term
+        momentum_error = du_dt[:, :, :-1] + convection - momentum_rhs
         
-        # Friction term (Manning equation)
-        h_pow = torch.pow(h_safe, 4.0/3.0)
-        friction = self.g * (self.n ** 2) * u * torch.abs(u) / h_pow
+        momentum_loss = torch.mean(momentum_error ** 2)
         
-        # Bed slope term
-        bed_slope = self.g * self.S0
-        
-        rhs_momentum = pressure_grad - friction + bed_slope
-        
-        # Momentum residual
-        residual_momentum = lhs_momentum - rhs_momentum
-        loss_momentum = torch.mean(residual_momentum ** 2)
-        
-        # Total physics loss
-        total_loss = self.alpha_cont * loss_continuity + self.alpha_mom * loss_momentum
-        
-        if return_components:
-            return total_loss, {
-                'continuity_loss': loss_continuity.item(),
-                'momentum_loss': loss_momentum.item(),
-                'residual_cont': residual_cont.detach(),
-                'residual_mom': residual_momentum.detach(),
-                'velocity': u.detach(),
-                'friction': friction.detach()
-            }
-        
-        return total_loss
+        return momentum_loss
     
-    def compute_residuals(
-        self,
-        predictions: torch.Tensor,
-        data: 'torch_geometric.data.Data'
-    ) -> Dict[str, float]:
+    def compute_residuals(self, h: torch.Tensor, u: torch.Tensor,
+                         dt: float = 1.0, dx: float = 1000.0) -> Tuple[torch.Tensor, torch.Tensor]:
+        """计算物理残差"""
+        continuity_residual = self.compute_continuity_loss(h, u, dt, dx)
+        momentum_residual = self.compute_momentum_loss(u, h, dt, dx)
+        
+        return continuity_residual, momentum_residual
+    
+    def forward(self, predictions: torch.Tensor, targets: torch.Tensor,
+               data_loss: torch.Tensor) -> Tuple[torch.Tensor, dict]:
         """
-        Compute physics residuals for monitoring (no gradients).
+        整体 PINN 损失函数
+        
+        Args:
+            predictions: 模型预测 (batch_size, pred_horizon, n_nodes, features)
+                        features: [water_level, discharge, sediment, temp, rainfall]
+            targets: 真实值 (batch_size, pred_horizon, n_nodes, features)
+            data_loss: 数据驱动损失 (MSE)
         
         Returns:
-            Dictionary of residual magnitudes
+            total_loss: 总损失
+            loss_dict: 损失分量字典
         """
-        with torch.no_grad():
-            _, components = self.forward(predictions, data, return_components=True)
+        # 提取水文变量
+        # 假设: features 0=water_level, 1=discharge (Q), 2=sediment
+        h = predictions[:, :, :, 0]  # 水位
+        Q = predictions[:, :, :, 1]  # 流量
+        
+        # 流速 u = Q / (h * B)
+        h_clamp = torch.clamp(h, min=0.1)
+        u = Q / (h_clamp * self.B)
+        
+        # 计算物理损失
+        continuity_loss = self.compute_continuity_loss(h, u)
+        momentum_loss = self.compute_momentum_loss(u, h)
+        
+        # 平均物理损失
+        physics_loss = (continuity_loss + momentum_loss) / 2
+        
+        # 加权组合
+        if self.adaptive_weight:
+            # 自适应加权：如果数据误差大，增加物理权重
+            physics_weight = self.physics_weight.item()
+            if data_loss.item() > 0.5:
+                physics_weight = min(physics_weight * 1.1, 1.0)
+            else:
+                physics_weight = max(physics_weight * 0.9, 0.1)
+            self.physics_weight.data.fill_(physics_weight)
+        else:
+            physics_weight = 0.5
+        
+        data_weight = 1.0 - physics_weight
+        
+        total_loss = data_weight * data_loss + physics_weight * physics_loss
+        
+        loss_dict = {
+            'total_loss': total_loss.item(),
+            'data_loss': data_loss.item(),
+            'physics_loss': physics_loss.item(),
+            'continuity_loss': continuity_loss.item(),
+            'momentum_loss': momentum_loss.item(),
+            'physics_weight': physics_weight,
+            'data_weight': data_weight,
+        }
+        
+        return total_loss, loss_dict
+    
+    def validate_physics(self, h: torch.Tensor, u: torch.Tensor,
+                        tolerance: float = 0.1) -> dict:
+        """
+        验证预测是否满足物理约束
+        
+        Returns:
+            validation_result: 包含满足度指标的字典
+        """
+        continuity_residual, momentum_residual = self.compute_residuals(h, u)
+        
+        # 标准化
+        continuity_residual_norm = continuity_residual.item()
+        momentum_residual_norm = momentum_residual.item()
+        
+        # 判断是否满足
+        continuity_satisfied = continuity_residual_norm < tolerance
+        momentum_satisfied = momentum_residual_norm < tolerance
         
         return {
-            'continuity': components['continuity_loss'],
-            'momentum': components['momentum_loss'],
-            'velocity_mean': components['velocity'].mean().item(),
-            'velocity_std': components['velocity'].std().item()
+            'continuity_residual': continuity_residual_norm,
+            'momentum_residual': momentum_residual_norm,
+            'continuity_satisfied': continuity_satisfied,
+            'momentum_satisfied': momentum_satisfied,
+            'overall_satisfied': continuity_satisfied and momentum_satisfied,
+            'physics_quality': 1.0 - min((continuity_residual_norm + momentum_residual_norm) / 2, 1.0)
         }
 
 
-class AdaptivePhysicsLoss(nn.Module):
+class CoarseningPhysicsLoss(PhysicsConstraintLoss):
     """
-    Adaptive weighting for physics loss components based on training progress.
-    
-    Gradually increases physics constraint weight as data fitting improves,
-    following curriculum learning principles.
+    多尺度物理约束损失
+    在不同粗糙度级别验证物理约束
     """
     
-    def __init__(
-        self,
-        base_physics_loss: SaintVenantLoss,
-        initial_weight: float = 0.1,
-        final_weight: float = 1.0,
-        warmup_epochs: int = 50
-    ):
-        super().__init__()
-        self.base_loss = base_physics_loss
-        self.initial_weight = initial_weight
-        self.final_weight = final_weight
-        self.warmup_epochs = warmup_epochs
-        self.current_epoch = 0
-        
-    def set_epoch(self, epoch: int):
-        """Update current epoch for adaptive weighting."""
-        self.current_epoch = epoch
-        
-    def get_current_weight(self) -> float:
-        """Compute adaptive weight based on training progress."""
-        if self.current_epoch < self.warmup_epochs:
-            # Linear warmup
-            alpha = self.current_epoch / self.warmup_epochs
-            return self.initial_weight + alpha * (self.final_weight - self.initial_weight)
-        else:
-            return self.final_weight
+    def __init__(self, *args, n_scales: int = 3, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.n_scales = n_scales
     
-    def forward(self, predictions, data, return_components=False):
-        weight = self.get_current_weight()
+    def forward(self, predictions: torch.Tensor, targets: torch.Tensor,
+               data_loss: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+        """在多个尺度上计算物理损失"""
         
-        if return_components:
-            loss, components = self.base_loss(predictions, data, return_components=True)
-            weighted_loss = weight * loss
-            components['adaptive_weight'] = weight
-            return weighted_loss, components
+        total_physics_loss = torch.tensor(0.0, device=predictions.device)
+        loss_scales = {}
         
-        return weight * self.base_loss(predictions, data)
+        for scale in range(1, self.n_scales + 1):
+            # 粗糙化预测
+            if scale == 1:
+                pred_coarse = predictions
+            else:
+                # 时间上的粗糙化
+                pred_coarse = predictions[:, ::scale, :, :]
+            
+            h = pred_coarse[:, :, :, 0]
+            Q = pred_coarse[:, :, :, 1]
+            h_clamp = torch.clamp(h, min=0.1)
+            u = Q / (h_clamp * self.B)
+            
+            # 物理损失在此尺度
+            continuity = self.compute_continuity_loss(h, u, dt=scale)
+            momentum = self.compute_momentum_loss(u, h, dt=scale)
+            
+            scale_loss = (continuity + momentum) / 2
+            total_physics_loss = total_physics_loss + scale_loss
+            
+            loss_scales[f'scale_{scale}'] = scale_loss.item()
+        
+        # 平均物理损失
+        physics_loss = total_physics_loss / self.n_scales
+        
+        # 加权组合
+        physics_weight = 0.5
+        data_weight = 0.5
+        
+        total_loss = data_weight * data_loss + physics_weight * physics_loss
+        
+        loss_dict = {
+            'total_loss': total_loss.item(),
+            'data_loss': data_loss.item(),
+            'physics_loss': physics_loss.item(),
+            **loss_scales,
+            'physics_weight': physics_weight,
+        }
+        
+        return total_loss, loss_dict
 
 
-class BoundaryConditionLoss(nn.Module):
+class SeasonalPhysicsConstraint(PhysicsConstraintLoss):
     """
-    Enforces boundary conditions at upstream/downstream boundaries.
+    带季节校准的物理约束
+    黄河"大水大沙"特征需要调整参数
     """
     
-    def __init__(self, upstream_idx: int, downstream_idx: int):
-        super().__init__()
-        self.upstream_idx = upstream_idx
-        self.downstream_idx = downstream_idx
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         
-    def forward(
-        self,
-        predictions: torch.Tensor,
-        upstream_target: Optional[torch.Tensor] = None,
-        downstream_target: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
-        loss = 0.0
+        # 季节参数
+        self.register_buffer('seasonal_manning', torch.tensor([0.025, 0.030, 0.035, 0.040]))  # 淡水/汛期
+        self.register_buffer('seasonal_slope', torch.tensor([0.0001, 0.00015, 0.0002, 0.00012]))
+    
+    def get_seasonal_params(self, month: int) -> Tuple[float, float]:
+        """根据月份获取季节参数"""
+        # 分为 4 个季节
+        season_idx = (month - 1) // 3
+        season_idx = min(season_idx, 3)
         
-        if upstream_target is not None:
-            loss += torch.mean(
-                (predictions[self.upstream_idx] - upstream_target) ** 2
-            )
+        manning = self.seasonal_manning[season_idx].item()
+        slope = self.seasonal_slope[season_idx].item()
         
-        if downstream_target is not None:
-            loss += torch.mean(
-                (predictions[self.downstream_idx] - downstream_target) ** 2
-            )
+        return manning, slope
+    
+    def forward(self, predictions: torch.Tensor, targets: torch.Tensor,
+               data_loss: torch.Tensor, month: int = 7) -> Tuple[torch.Tensor, dict]:
+        """计算带季节调整的物理损失"""
         
-        return loss
+        # 更新季节参数
+        manning, slope = self.get_seasonal_params(month)
+        self.manning = manning
+        self.S0 = slope
+        
+        # 调用父类方法
+        return super().forward(predictions, targets, data_loss)
 
 
-if __name__ == "__main__":
-    """Unit test for physics constraints."""
-    print("Testing SaintVenantLoss...")
+if __name__ == '__main__':
+    # 测试
+    batch_size = 4
+    seq_len = 6
+    n_nodes = 5
+    n_features = 5
     
-    # Create dummy data
-    from torch_geometric.data import Data
+    physics_loss = PhysicsConstraintLoss(
+        manning_coefficient=0.03,
+        bed_slope=0.0001,
+        river_width=500.0
+    )
     
-    num_nodes = 10
-    x = torch.randn(num_nodes, 5)  # [t, x, flow, rain, temp]
-    x[:, 0] = torch.linspace(0, 1, num_nodes)  # time
-    x[:, 1] = torch.linspace(0, 10, num_nodes)  # space
-    x[:, 2] = 2000 + 500 * torch.randn(num_nodes)  # flow
+    # 模拟数据
+    predictions = torch.randn(batch_size, seq_len, n_nodes, n_features)
+    predictions[:, :, :, 0] = 1000 + torch.abs(predictions[:, :, :, 0]) * 100  # 水位 1000~1100
+    predictions[:, :, :, 1] = 1500 + torch.abs(predictions[:, :, :, 1]) * 500  # 流量 1500~2000
     
-    edge_index = torch.randint(0, num_nodes, (2, 20))
-    data = Data(x=x, edge_index=edge_index)
+    targets = predictions + torch.randn_like(predictions) * 0.1
     
-    # Create predictions (water_level, sediment)
-    predictions = torch.randn(num_nodes, 2, requires_grad=True)
-    predictions[:, 0] = torch.abs(predictions[:, 0]) + 10  # Ensure positive depth
+    data_loss = F.mse_loss(predictions, targets)
     
-    # Initialize physics loss
-    physics_loss = SaintVenantLoss(g=9.8, n=0.03, S0=0.001, B=50.0)
+    # 计算物理约束
+    total_loss, loss_dict = physics_loss(predictions, targets, data_loss)
     
-    # Compute loss
-    loss, components = physics_loss(predictions, data, return_components=True)
+    print("损失分量:")
+    for k, v in loss_dict.items():
+        print(f"  {k}: {v:.6f}")
     
-    print(f"Total Physics Loss: {loss.item():.6f}")
-    print(f"Continuity Loss: {components['continuity_loss']:.6f}")
-    print(f"Momentum Loss: {components['momentum_loss']:.6f}")
-    print(f"Mean Velocity: {components['velocity'].mean().item():.2f} m/s")
+    # 验证物理约束
+    h = predictions[:, :, :, 0]
+    Q = predictions[:, :, :, 1]
+    u = Q / h
     
-    # Test gradients flow
-    loss.backward()
-    assert predictions.grad is not None
-    print(f"✓ Gradients computed: mean={predictions.grad.mean().item():.6f}")
-    
-    print("✓ All physics loss tests passed!")
+    validation = physics_loss.validate_physics(h, u)
+    print("\n物理约束满足情况:")
+    for k, v in validation.items():
+        print(f"  {k}: {v}")

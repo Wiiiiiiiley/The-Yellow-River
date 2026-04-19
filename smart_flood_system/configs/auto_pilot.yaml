@@ -1,101 +1,179 @@
-# AutoPilot Configuration
-# ========================
-# Fully autonomous "Collect-Train-Evolve" closed-loop system
+# AutoPilot 自动生命周期配置
 
-# Module 1: Auto-Downloader
-download:
-  schedule:
-    hour: 2      # 2:00 AM daily
-    minute: 0
+scheduler:
+  timezone: "Asia/Shanghai"
+  startup_delay: 60  # 启动延迟（秒）
+
+# 自动下载程序
+auto_downloader:
+  enabled: true
+  schedule: "0 2 * * *"  # 每日凌晨 2: 00
   
-  apis:
-    - hydrology      # Yellow River hydrological stations
-    - meteorology    # Weather data
-  
-  retry_attempts: 3
-  archive_dir: "data/archive/"
-  
-  # API endpoints (configure with actual endpoints)
+  # 数据源
   api_endpoints:
-    hydrology: "https://api.yellowriver.gov/hydrology/v1"
-    meteorology: "https://api.weather.gov.cn/yellow-river"
+    - name: "Yellow River HQ"
+      url: "http://api.yr.gov.cn/data"
+      auth_required: true
+    - name: "Local Fallback"
+      url: "http://localhost:8000/api"
+      auth_required: false
+  
+  # 重试策略
+  retry:
+    max_attempts: 3
+    backoff_factor: 2
+    timeout: 300
+  
+  # 数据存储
+  storage:
+    db_path: "data/autopilot.db"
+    table_name: "sensor_data"
+    retention_days: 365
 
-# Module 2: Auto-Trainer
-training:
-  trigger_days: 7              # Trigger after 7 days of new data
-  historical_buffer_days: 30  # Keep 30 days history
-  buffer_ratio: 0.2           # 20% historical samples
+# 自动训练程序
+auto_trainer:
+  enabled: true
+  trigger_days: 7  # 每 7 天训练一次
   
-  learning_rate: 0.0001       # Low LR for fine-tuning
-  epochs: 100
-  batch_size: 32
-  
-  # Personality preservation
-  freeze_layers: 2            # Freeze bottom 2 layers
-  feature_columns:
-    - flow_rate
-    - rainfall
-    - temperature
-    - sin_year
-    - cos_year
-    - sin_season
-    - cos_season
-    - is_flood_season
-    - sin_hour
-    - cos_hour
-
-# Module 3: Self-Evolution
-evolution:
-  physics_residual_threshold: 0.1
-  improvement_threshold: 0.05    # 5% improvement required
-  auto_hp_search: true
-  
-  # Physical parameter search space
-  hp_search_space:
-    n_manning: [0.025, 0.035]    # Roughness coefficient
-    S0_bed_slope: [0.0005, 0.002] # Bed slope
-    B_width: [40.0, 60.0]        # Channel width
-  
-  # Model promotion criteria
-  promotion_criteria:
-    physics_improved: true
-    val_loss_improved: true
-    min_epochs: 50
-
-# Module 4: Auto-Dashboard
-dashboard:
-  report_interval_hours: 24
-  streamlit_port: 8501
-  
-  # Report templates
-  report_sections:
-    - evolution_summary
-    - physics_personality_trends
-    - learning_statistics
-    - model_lineage
-    - physical_parameters
-
-# System Settings
-system:
-  model_dir: "models/autopilot/"
-  log_dir: "logs/"
-  report_dir: "reports/evolution/"
-  
-  # Async settings
-  max_concurrent_jobs: 3
-  job_timeout_seconds: 3600
-  
-  # Health monitoring
-  health_check_interval_minutes: 5
-  disk_space_threshold_gb: 5.0
-  
-  # Notification
-  notifications:
-    on_evolution: true
-    on_error: true
-    on_promotion: true
+  # 个性保持
+  personality_preservation:
+    enabled: true
+    history_buffer_ratio: 0.2  # 20% 历史数据
+    seasonal_encoding: true
     
-    channels:
-      - log
-      - email      # Configure SMTP
-      - webhook    # Configure endpoint
+    # 季节特征
+    seasonal:
+      flood_season: [6, 7, 8, 9]  # 6-9 月
+      dry_season: [10, 11, 12, 1, 2, 3]
+      sin_encoding: true
+      cos_encoding: true
+  
+  # Q × S 特征交叉（大水大沙）
+  feature_engineering:
+    enabled: true
+    discharge_sediment_interaction: true
+    exner_dynamics: true
+    gradient_monitoring: true
+
+# 自我进化程序
+self_evolution:
+  enabled: true
+  check_frequency: 3600  # 每小时检查一次
+  
+  # 物理残差监控
+  physics_residual_monitor:
+    enabled: true
+    threshold: 0.1
+    calibration_trigger: true
+  
+  # 自动晋升/降级
+  model_promotion:
+    enabled: true
+    improvement_threshold: 0.05  # 5%
+    demotion_threshold: -0.02  # -2%
+  
+  # 超参数搜索
+  hyperparameter_optimization:
+    enabled: true
+    method: "optuna"
+    n_trials: 50
+    timeout: 86400  # 1 天
+
+# 自动报告生成
+auto_reporter:
+  enabled: true
+  schedule: "0 8 * * *"  # 每日上午 8: 00
+  
+  format: "markdown"
+  
+  sections:
+    - "generation_info"
+    - "performance_metrics"
+    - "evolution_lineage"
+    - "recommendations"
+  
+  visualization:
+    enabled: true
+    include_charts: true
+    include_tables: true
+  
+  output:
+    filename: "results/reports/evolution_report.md"
+    publish_dashboard: true
+
+# 数字回溯-防遗忘
+backtrack_validator:
+  enabled: true
+  schedule: "0 3 1 * *"  # 每月 1 号凌晨 3: 00
+  
+  # 基线设置
+  baseline:
+    year: 2021
+    event: "extreme_flood"
+    dataset_path: "data/archive/2021_extreme_flood.csv"
+    initial_baseline: true
+  
+  # 监测标准
+  thresholds:
+    warning_degradation: 0.10  # 10% 退化
+    critical_degradation: 0.20  # 20% 退化
+  
+  # 自动回滚
+  auto_rollback:
+    enabled: true
+    rollback_trigger: 0.20
+    backup_dir: "models/backups/"
+
+# 数据适配器
+data_adapter:
+  enabled: true
+  cache_enabled: true
+  cache_ttl: 3600
+  
+  # 测点配置
+  stations:
+    HYD_001:
+      name: "兰州"
+      latitude: 36.0611
+      longitude: 103.8343
+    HYD_002:
+      name: "河口镇"
+      latitude: 35.7897
+      longitude: 110.2406
+    HYD_003:
+      name: "龙门"
+      latitude: 35.1064
+      longitude: 110.5921
+    HYD_004:
+      name: "三门峡"
+      latitude: 34.7753
+      longitude: 111.1934
+    HYD_005:
+      name: "花园口"
+      latitude: 34.9031
+      longitude: 113.1889
+  
+  # 警报阈值
+  alerts:
+    normal_max_water_level: 1000
+    warning_water_level: 1100
+    critical_water_level: 1200
+    sediment_concentration_warning: 100  # kg/m³
+
+# 非阻塞执行
+execution:
+  async_enabled: true
+  thread_pool: 10
+  queue_size: 1000
+  error_recovery: true
+
+# 监控与日志
+logging:
+  level: "INFO"
+  format: "[%(asctime)s] %(levelname)s - %(message)s"
+  file: "logs/autopilot.log"
+  max_size: 10485760  # 10MB
+  backup_count: 5
+
+# 版本
+version: "2.0.0"

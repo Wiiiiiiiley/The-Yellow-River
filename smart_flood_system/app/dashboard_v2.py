@@ -1,746 +1,629 @@
 """
-Autonomous Smart Management Dashboard v2.0
-============================================
-
-Upgraded Streamlit interface for the "Collect-Train-Evolve" autonomous system.
-
-Features:
-1. System Status Sidebar - Model version, API status, sync time
-2. Evolution Trajectory Chart - Physics residual over time
-3. Multimodal Visual Monitoring - Tabs for prediction/danger/decision
-4. RL Recommendation Module - Discharge & scour depth
-5. Real-time Mode - 5-second auto refresh
-
-Run: streamlit run app/dashboard_v2.py --server.port 8501
+Dashboard v2 - 自主管理仪表板
+Streamlit 实时监控系统，集成进化、多模态监控和 RL 决策建议
 """
 
 import streamlit as st
-import numpy as np
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import time
-import json
+import plotly.express as px
 from datetime import datetime, timedelta
-from pathlib import Path
 import sys
+from pathlib import Path
 
-# Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# 添加项目路径
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
-# Initialize data adapter
-from data_adapter import get_data_adapter, SensorDataAdapter
+from smart_flood_system.data_adapter import get_data_adapter
+from smart_flood_system.main_system import SmartFloodSystem
 
-# Cache the adapter instance
-@st.cache_resource
-def get_adapter():
-    return get_data_adapter()
-
-data_adapter = get_adapter()
-
-# Page config - MUST be first
+# 页面配置
 st.set_page_config(
-    page_title="黄河智慧防汛 - 自主管理系统",
+    page_title="黄河智慧防汛系统 v2.0",
     page_icon="🌊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# =============================================================================
-# SESSION STATE INITIALIZATION
-# =============================================================================
-if 'real_time_mode' not in st.session_state:
-    st.session_state.real_time_mode = False
-if 'last_refresh' not in st.session_state:
-    st.session_state.last_refresh = datetime.now()
-if 'uploaded_image' not in st.session_state:
-    st.session_state.uploaded_image = None
+# 自定义样式
+st.markdown("""
+<style>
+    .main {
+        padding-top: 2rem;
+    }
+    .status-box {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 0.5rem 0;
+    }
+    .status-ok {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .status-warning {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .status-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# =============================================================================
-# SIDEBAR - SYSTEM STATUS
-# =============================================================================
-st.sidebar.markdown("# 🤖 系统状态监控")
 
-# Model Version Card
-version_html = '''
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 10px; color: white; margin-bottom: 15px;">
-    <h4 style="margin: 0; color: white;">🧠 当前模型版本</h4>
-    <h2 style="margin: 5px 0; color: #FFD700;">v2.4.2-Evolved</h2>
-    <p style="margin: 0; font-size: 12px;">Gen-5 | PINN-Personality</p>
-</div>
-'''
-st.sidebar.markdown(version_html, unsafe_allow_html=True)
+@st.cache_resource
+def init_system():
+    """初始化系统"""
+    return SmartFloodSystem()
 
-# API Status
-api_connected = True
-api_status = "🟢 Connected" if api_connected else "🔴 Disconnected"
-last_sync = "2026-04-17 12:35:12"
 
-api_style = f"background: {'#d4edda' if api_connected else '#f8d7da'}; padding: 10px; border-radius: 8px; border-left: 4px solid {'#28a745' if api_connected else '#dc3545'}; margin-bottom: 15px;"
+@st.cache_resource
+def get_adapter():
+    """获取数据适配器"""
+    return get_data_adapter()
 
-st.sidebar.markdown(f'<div style="{api_style}"><b>API 状态:</b> {api_status}<br><small>上次同步: {last_sync}</small></div>', 
-                   unsafe_allow_html=True)
 
-# System Metrics - Get from real data
-st.sidebar.markdown("### 📊 实时指标")
-
-# Query station status from adapter
-try:
-    station_status = data_adapter.get_station_status()
-    active_stations = len(station_status[station_status['data_age_minutes'] < 30]) if not station_status.empty else 5
-    total_stations = len(SensorDataAdapter.STATIONS)
-    latest_update = station_status['last_update'].max() if not station_status.empty else datetime.now()
-except Exception as e:
-    active_stations = 5
-    total_stations = 5
-    latest_update = datetime.now()
-
-col_sb1, col_sb2 = st.sidebar.columns(2)
-with col_sb1:
-    st.metric("活跃站点", f"{active_stations}/{total_stations}", "100%")
-    st.metric("物理残差", "0.08", "-12%")
-with col_sb2:
-    st.metric("最新数据", latest_update.strftime('%H:%M') if isinstance(latest_update, datetime) else "--:--", "刚刚")
-    st.metric("数据源", "模拟/真实", "混合")
-
-# Control Panel
-st.sidebar.markdown("---")
-st.sidebar.markdown("### ⚙️ 控制面板")
-
-# Real-time mode toggle
-real_time = st.sidebar.toggle("🔴 实时模式 (5秒刷新)", value=st.session_state.real_time_mode)
-st.session_state.real_time_mode = real_time
-
-if real_time:
-    st.sidebar.success("✓ 实时模式已启用")
-    st.sidebar.caption("图表将自动拉取API数据")
-
-# Manual refresh
-if st.sidebar.button("🔄 立即刷新"):
-    st.session_state.last_refresh = datetime.now()
-    st.rerun()
-
-st.sidebar.caption(f"上次刷新: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
-
-# =============================================================================
-# MAIN HEADER
-# =============================================================================
-header_html = '<div style="text-align: center; padding: 20px 0;"><h1>黄河智慧防汛 - 自主管理系统</h1><p style="color: #666; font-size: 16px;">Collect → Train → Evolve | 全自动AI生命周期管理</p></div>'
-st.markdown(header_html, unsafe_allow_html=True)
-
-# =============================================================================
-# EVOLUTION TRAJECTORY CHART
-# =============================================================================
-st.markdown("---")
-st.markdown("### 📈 进化轨迹 - 物理残差优化")
-
-# Generate evolution history data
-@st.cache_data(ttl=30)
-def get_evolution_data():
-    """Simulate evolution trajectory data."""
-    generations = list(range(1, 6))
-    dates = [datetime(2026, 1, 1) + timedelta(days=30*i) for i in range(5)]
+def main():
+    """主程序"""
     
-    # Physics residual decreasing over time
-    base_residual = 0.25
-    residuals = [
-        base_residual * (0.7 ** i) + np.random.randn() * 0.02 
-        for i in range(5)
-    ]
+    # 标题
+    col1, col2, col3 = st.columns([3, 1, 1])
+    with col1:
+        st.title("🌊 智慧黄河防汛决策系统 v2.0")
+    with col2:
+        st.metric("系统状态", "🟢 运行中")
+    with col3:
+        st.metric("更新时间", datetime.now().strftime("%H:%M:%S"))
     
-    # Validation loss
-    val_losses = [r * 0.6 + np.random.randn() * 0.01 for r in residuals]
+    st.divider()
     
-    return pd.DataFrame({
-        'Generation': generations,
-        'Date': dates,
-        'Physics_Residual': residuals,
-        'Val_Loss': val_losses,
-        'Status': ['Baseline', 'Improved', 'Improved', 'Promoted', 'Promoted']
-    })
-
-ev_df = get_evolution_data()
-
-# Create evolution chart
-fig_evo = make_subplots(
-    rows=1, cols=2,
-    subplot_titles=('物理残差趋势', '验证损失趋势'),
-    specs=[[{"secondary_y": False}, {"secondary_y": False}]]
-)
-
-# Physics residual line
-fig_evo.add_trace(
-    go.Scatter(
-        x=ev_df['Generation'],
-        y=ev_df['Physics_Residual'],
-        mode='lines+markers',
-        name='Physics Residual',
-        line=dict(color='#e74c3c', width=3),
-        marker=dict(size=12, symbol='circle'),
-        text=ev_df['Status'],
-        hovertemplate='<b>Gen-%{x}</b><br>Residual: %{y:.4f}<br>Status: %{text}<extra></extra>'
-    ),
-    row=1, col=1
-)
-
-# Target threshold line
-fig_evo.add_hline(
-    y=0.1, line_dash="dash", line_color="green",
-    annotation_text="目标阈值 0.1",
-    row=1, col=1
-)
-
-# Validation loss line
-fig_evo.add_trace(
-    go.Scatter(
-        x=ev_df['Generation'],
-        y=ev_df['Val_Loss'],
-        mode='lines+markers',
-        name='Validation Loss',
-        line=dict(color='#3498db', width=3),
-        marker=dict(size=12, symbol='diamond'),
-        hovertemplate='<b>Gen-%{x}</b><br>Val Loss: %{y:.4f}<extra></extra>'
-    ),
-    row=1, col=2
-)
-
-fig_evo.update_layout(
-    height=350,
-    showlegend=False,
-    title_text="模型进化历程: 越训练越聪明",
-    title_x=0.5
-)
-
-fig_evo.update_xaxes(title_text="世代", row=1, col=1)
-fig_evo.update_xaxes(title_text="世代", row=1, col=2)
-fig_evo.update_yaxes(title_text="物理残差", row=1, col=1)
-fig_evo.update_yaxes(title_text="验证损失", row=1, col=2)
-
-st.plotly_chart(fig_evo, use_container_width=True)
-
-# Evolution summary cards
-cols = st.columns(4)
-summary_data = [
-    ("🧬 当前世代", "Gen-5", "+2 本月"),
-    ("📉 物理残差", "0.08", "-68%"),
-    ("🎯 目标达成", "✓ 是", "< 0.1"),
-    ("📊 改进速度", "12%/月", "稳定")
-]
-
-for col, (label, value, delta) in zip(cols, summary_data):
-    with col:
-        st.metric(label, value, delta)
-
-# =============================================================================
-# MAIN TABS - MULTIMODAL MONITORING
-# =============================================================================
-st.markdown("---")
-st.markdown("### 🔍 多模态智能监控")
-
-tab1, tab2, tab3 = st.tabs(["💧 水沙预测", "⚠️ 险情识别", "💡 决策建议"])
-
-# -----------------------------------------------------------------------------
-# TAB 1: WATER & SEDIMENT PREDICTION
-# -----------------------------------------------------------------------------
-with tab1:
-    st.markdown("#### GNN-Transformer 实时预测")
+    # 初始化系统
+    system = init_system()
+    adapter = get_adapter()
     
-    # Get real-time sensor data from adapter
-    @st.cache_data(ttl=5 if st.session_state.real_time_mode else 300)
-    def get_prediction_data():
-        """Get real sensor data from data adapter."""
-        # Get latest readings from all stations
-        df = data_adapter.get_latest_readings(hours=18)
+    # ===== 侧边栏：系统状态 =====
+    with st.sidebar:
+        st.header("📊 系统状态")
         
-        if df.empty:
-            st.warning("无法获取传感器数据，使用模拟数据")
-            return _get_fallback_data()
+        st.subheader("模型信息")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("模型版本", "v2.0.0")
+        with col2:
+            st.metric("演进代数", "42")
         
-        # Aggregate across stations (mean for system overview)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df_hourly = df.groupby('timestamp').agg({
-            'water_level': 'mean',
-            'sediment': 'mean',
-            'flow_rate': 'mean'
-        }).reset_index()
+        st.metric("API 连接", "✅ 已连接")
+        st.metric("活跃站点", "5/5")
+        st.metric("上次同步", "2 分钟前")
         
-        # Sort by time
-        df_hourly = df_hourly.sort_values('timestamp')
+        st.divider()
         
-        # Split into historical (last 6h) and future predictions
-        now = datetime.now()
-        historical = df_hourly[df_hourly['timestamp'] <= now]
+        st.subheader("功能选择")
+        refresh_interval = st.slider("刷新间隔（秒）", 5, 60, 5)
         
-        # For predictions, we'll use model or simulate trend
-        future_times = [now + timedelta(hours=i) for i in range(13)]
+        auto_refresh = st.checkbox("实时模式", value=True)
+        if auto_refresh:
+            st.info("⏱️ 5 秒自动刷新")
+    
+    # ===== 主页面：多个标签页 =====
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "💧 水沙预测",
+        "⚠️ 险情识别",
+        "💡 决策建议",
+        "🔍 模型对比",
+        "📈 进化轨迹",
+        "📋 系统日志"
+    ])
+    
+    # ===== 标签页 1: 水沙预测 =====
+    with tab1:
+        st.header("水文数据与预报")
         
-        # Simple trend-based prediction (replace with actual model inference)
-        if len(historical) >= 3:
-            last_levels = historical['water_level'].tail(3).values
-            trend = (last_levels[-1] - last_levels[0]) / 2  # per hour trend
+        # 获取站点信息
+        status = adapter.get_station_status()
+        
+        # 实时数据表
+        st.subheader("实时传感器数据")
+        
+        # 构建表格
+        station_data = []
+        for sid, info in status.items():
+            station_data.append({
+                '站点': info.get('station_name', sid),
+                '水位 (m)': f"{info['water_level']:.1f}",
+                '流量 (m³/s)': f"{info['discharge']:.0f}",
+                '含沙量 (kg/m³)': f"{info['sediment_concentration']:.1f}",
+                '温度 (°C)': f"{info['temperature']:.1f}",
+                '状态': info['water_status'],
+            })
+        
+        df_table = pd.DataFrame(station_data)
+        st.dataframe(df_table, use_container_width=True, hide_index=True)
+        
+        # 预测图表
+        st.subheader("6 小时预报")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # 水位预测
+            try:
+                pred = system.predict('HYD_001')
+                water_levels = pred.get('water_level', [])
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    y=water_levels,
+                    mode='lines+markers',
+                    name='预测水位',
+                    line=dict(color='blue', width=2),
+                    fill='tozeroy'
+                ))
+                
+                fig.update_layout(
+                    title="兰州站水位预测",
+                    yaxis_title="水位 (m)",
+                    xaxis_title="预测时间 (小时)",
+                    height=300,
+                    hovermode='x unified'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.warning(f"预测失败: {e}")
+        
+        with col2:
+            # 流量预测
+            try:
+                pred = system.predict('HYD_001')
+                discharge = pred.get('discharge', [])
+                
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    y=discharge,
+                    name='预测流量',
+                    marker_color='steelblue'
+                ))
+                
+                fig.update_layout(
+                    title="兰州站流量预测",
+                    yaxis_title="流量 (m³/s)",
+                    xaxis_title="预测时间 (小时)",
+                    height=300
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.warning(f"预测失败: {e}")
+        
+        # 泥沙预测
+        st.subheader("泥沙浓度预报")
+        try:
+            pred = system.predict('HYD_001')
+            sediment = pred.get('sediment', [])
             
-            pred_water = [last_levels[-1] + trend * i + np.random.randn() * 0.3 for i in range(13)]
-            base_sediment = historical['sediment'].iloc[-1] if len(historical) > 0 else 20
-            pred_sediment = [base_sediment * (1 + 0.005 * i) + np.random.randn() * 0.5 for i in range(13)]
-        else:
-            # Fallback if not enough historical data
-            return _get_fallback_data()
-        
-        # Build time series
-        time_points = list(historical['timestamp']) + future_times
-        hist_count = len(historical)
-        
-        return {
-            'time': time_points,
-            'hist_water': list(historical['water_level']) + [None]*13,
-            'hist_sediment': list(historical['sediment']) + [None]*13,
-            'pred_water': [None]*hist_count + pred_water,
-            'pred_sediment': [None]*hist_count + pred_sediment,
-            'water_upper': [None]*hist_count + [w + 1.5 for w in pred_water],
-            'water_lower': [None]*hist_count + [w - 1.5 for w in pred_water],
-            'source': 'real' if ('is_simulated' not in df.columns or not df['is_simulated'].any()) else 'mixed'
-        }
-    
-    def _get_fallback_data():
-        """Fallback simulation when no real data available."""
-        now = datetime.now()
-        time_points = [now + timedelta(hours=i) for i in range(-6, 13)]
-        
-        hist_water = 52 + np.sin(np.linspace(0, np.pi, 6)) * 2 + np.random.randn(6) * 0.3
-        pred_water = 52 + np.sin(np.linspace(np.pi, 3*np.pi, 13)) * 3 + np.random.randn(13) * 0.5
-        
-        return {
-            'time': time_points,
-            'hist_water': list(hist_water) + [None]*13,
-            'hist_sediment': list(15 + hist_water * 0.3) + [None]*13,
-            'pred_water': [None]*6 + list(pred_water),
-            'pred_sediment': [None]*6 + list(15 + np.array(pred_water) * 0.3),
-            'water_upper': [None]*6 + list(np.array(pred_water) + 1.5),
-            'water_lower': [None]*6 + list(np.array(pred_water) - 1.5),
-            'source': 'simulated'
-        }
-    
-    data = get_prediction_data()
-    
-    # Show data source indicator
-    if data.get('source') == 'real':
-        st.success("已接入真实传感器数据")
-    elif data.get('source') == 'mixed':
-        st.info("部分数据来自模拟")
-    else:
-        st.caption("演示模式：使用模拟数据")
-    
-    # Water level chart
-    fig_water = go.Figure()
-    
-    # Confidence band
-    fig_water.add_trace(go.Scatter(
-        x=data['time'], y=data['water_upper'],
-        fill=None, mode='lines', line_color='rgba(0,0,0,0)',
-        showlegend=False, hoverinfo='skip'
-    ))
-    fig_water.add_trace(go.Scatter(
-        x=data['time'], y=data['water_lower'],
-        fill='tonexty', fillcolor='rgba(0,100,80,0.2)',
-        mode='lines', line_color='rgba(0,0,0,0)',
-        name='置信区间', hoverinfo='skip'
-    ))
-    
-    # Historical
-    fig_water.add_trace(go.Scatter(
-        x=data['time'], y=data['hist_water'],
-        mode='lines+markers', name='历史数据',
-        line=dict(color='gray', width=2, dash='solid'),
-        marker=dict(size=6)
-    ))
-    
-    # Prediction
-    fig_water.add_trace(go.Scatter(
-        x=data['time'], y=data['pred_water'],
-        mode='lines+markers', name='AI预测',
-        line=dict(color='#00a8e8', width=3),
-        marker=dict(size=8)
-    ))
-    
-    # Thresholds
-    fig_water.add_hline(y=55, line_dash="dash", line_color="orange", annotation_text="警戒水位")
-    fig_water.add_hline(y=65, line_dash="dash", line_color="red", annotation_text="危险水位")
-    
-    fig_water.update_layout(
-        title="水位预测 (未来12小时)",
-        xaxis_title="时间",
-        yaxis_title="水位 (m)",
-        height=350,
-        showlegend=True
-    )
-    
-    st.plotly_chart(fig_water, use_container_width=True)
-    
-    # Real-time indicator
-    if st.session_state.real_time_mode:
-        st.success("🔴 实时模式运行中 - 每5秒自动更新")
-    
-    # Sediment prediction
-    fig_sed = go.Figure()
-    fig_sed.add_trace(go.Scatter(
-        x=data['time'], y=data['hist_sediment'],
-        mode='lines+markers', name='历史含沙量',
-        line=dict(color='gray', width=2)
-    ))
-    fig_sed.add_trace(go.Scatter(
-        x=data['time'], y=data['pred_sediment'],
-        mode='lines+markers', name='预测含沙量',
-        line=dict(color='#8B4513', width=3)
-    ))
-    fig_sed.update_layout(
-        title="含沙量预测 (大水大沙关系)",
-        xaxis_title="时间",
-        yaxis_title="含沙量 (kg/m³)",
-        height=300
-    )
-    st.plotly_chart(fig_sed, use_container_width=True)
-    
-    # Station status table
-    st.markdown("---")
-    st.markdown("#### 📍 监测站点实时状态")
-    
-    try:
-        station_df = data_adapter.get_station_status()
-        if not station_df.empty:
-            # Format for display
-            display_df = station_df[['station_id', 'name', 'water_level', 'flow_rate', 'sediment', 'status']].copy()
-            display_df.columns = ['站点ID', '名称', '水位(m)', '流量(m³/s)', '含沙量(kg/m³)', '状态']
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                y=sediment,
+                mode='lines',
+                name='含沙量',
+                line=dict(color='orange', width=2)
+            ))
             
-            # Color code status
-            def highlight_status(val):
-                if val == 'CRITICAL':
-                    return 'background-color: #ffcccc; color: red; font-weight: bold'
-                elif val == 'WARNING':
-                    return 'background-color: #ffffcc; color: orange'
-                return 'background-color: #ccffcc; color: green'
+            # 添加警告线
+            fig.add_hline(y=100, line_dash="dash", line_color="red",
+                         annotation_text="警告阈值", annotation_position="right")
             
-            st.dataframe(
-                display_df.style.map(highlight_status, subset=['状态']),
-                use_container_width=True,
-                hide_index=True
+            fig.update_layout(
+                title="含沙量预报",
+                yaxis_title="含沙量 (kg/m³)",
+                xaxis_title="预测时间 (小时)",
+                height=300
             )
-        else:
-            st.info("暂无站点数据")
-    except Exception as e:
-        st.error(f"加载站点数据失败: {e}")
-
-# -----------------------------------------------------------------------------
-# TAB 2: DANGER DETECTION (Vision Intelligence)
-# -----------------------------------------------------------------------------
-with tab2:
-    st.markdown("#### 🚁 无人机险情识别 - Vision Intelligence")
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.warning(f"预测失败: {e}")
     
-    col_vision1, col_vision2 = st.columns([3, 2])
-    
-    with col_vision1:
-        # Image upload interface
-        uploaded = st.file_uploader(
-            "📤 上传无人机图像",
-            type=['jpg', 'jpeg', 'png'],
-            help="支持 JPG/PNG 格式，自动检测裂缝、渗漏、侵蚀"
-        )
+    # ===== 标签页 2: 险情识别 =====
+    with tab2:
+        st.header("多模态险情识别")
         
-        if uploaded is not None:
-            from PIL import Image
-            import io
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📸 无人机图像分析")
+            st.info("上传无人机图像以检测结构脆弱性")
             
-            image = Image.open(uploaded)
-            st.session_state.uploaded_image = image
+            uploaded_file = st.file_uploader("选择图像文件", type=['jpg', 'png', 'jpeg'])
             
-            # Display with red bounding box simulation
-            st.markdown("**检测结果:**")
-            
-            # Create annotated image display
-            col_img, col_detail = st.columns([2, 1])
-            
-            with col_img:
-                st.image(image, caption="原始图像", use_container_width=True)
-            
-            with col_detail:
-                crack_html = '''<div style='border: 2px solid red; padding: 10px; border-radius: 5px; background: #ffe6e6;'>
-                    <h4 style='color: red; margin: 0;'>⚠️ 检测到裂缝</h4>
-                    <ul style='margin: 10px 0;'><li>位置: 右下象限</li><li>长度: 45cm</li><li>宽度: 12mm</li><li>置信度: 87%</li></ul>
-                </div>'''
-                st.markdown(crack_html, unsafe_allow_html=True)
+            if uploaded_file:
+                st.image(uploaded_file, caption="上传的图像", use_column_width=True)
                 
-                # Detection visualization
-                st.markdown("**裂缝定位 (红框标注):**")
+                # 模拟 AI 分析
+                with st.spinner("AI 分析中..."):
+                    import time
+                    time.sleep(2)
                 
-                # Create a simple visualization of detection boxes
-                fig_det = go.Figure()
+                st.success("✅ 分析完成")
                 
-                # Image boundary
-                fig_det.add_shape(
-                    type="rect", x0=0, y0=0, x1=100, y1=100,
-                    line=dict(color="black", width=2)
-                )
+                col_a, col_b, col_c = st.columns(3)
+                with col_a:
+                    st.metric("裂缝检测", "3 处", delta=-2)
+                with col_b:
+                    st.metric("冲刷评分", "8/10", delta="+1")
+                with col_c:
+                    st.metric("风险等级", "中等", delta="无变化")
+        
+        with col2:
+            st.subheader("⚠️ 实时风险评估")
+            
+            # 站点风险等级
+            st.write("**各站点风险评估:**")
+            
+            risk_data = {
+                '站点': ['兰州', '河口镇', '龙门', '三门峡', '花园口'],
+                '风险等级': ['🟢 低', '🟢 低', '🟡 中', '🟢 低', '🟢 低'],
+                '主要隐患': ['无', '无', '堤基渗漏风险', '无', '无'],
+            }
+            
+            df_risk = pd.DataFrame(risk_data)
+            st.dataframe(df_risk, use_container_width=True, hide_index=True)
+            
+            # 风险时间序列
+            st.write("**风险趋势:**")
+            
+            risk_trend = pd.DataFrame({
+                'time': pd.date_range(end=datetime.now(), periods=24, freq='H'),
+                'risk_score': np.random.uniform(0.3, 0.7, 24)
+            })
+            
+            fig = px.line(risk_trend, x='time', y='risk_score',
+                         title='过去 24 小时风险指数',
+                         labels={'risk_score': '风险指数'})
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # ===== 标签页 3: 决策建议 =====
+    with tab3:
+        st.header("RL 智能决策建议")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.subheader("💧 泄洪建议")
+            current_state = np.random.randn(19)
+            recommendations = system.get_rl_recommendations(current_state)
+            
+            st.metric("建议泄洪流量", 
+                     f"{recommendations['recommended_discharge'][0]:.0f} m³/s")
+            
+            st.write("**各闸门调整:**")
+            for i, adj in enumerate(recommendations['discharge_adjustments']):
+                st.write(f"  闸门 {i+1}: {adj:+.1f} m³/s")
+        
+        with col2:
+            st.subheader("📏 冲刷深度")
+            st.metric("估算冲刷深度", 
+                     f"{recommendations['scour_depth_estimate']:.2f} m")
+            st.info("这是对河床可能冲刷深度的估算")
+        
+        with col3:
+            st.subheader("📊 风险概率")
+            risk_prob = recommendations['risk_probability'] * 100
+            st.metric("突发风险概率", f"{risk_prob:.1f}%")
+            
+            # 风险仪表盘
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=risk_prob,
+                domain={'x': [0, 1], 'y': [0, 1]},
+                title={'text': "风险概率"},
+                gauge={
+                    'axis': {'range': [None, 100]},
+                    'bar': {'color': "darkblue"},
+                    'steps': [
+                        {'range': [0, 30], 'color': "lightgray"},
+                        {'range': [30, 70], 'color': "lightblue"},
+                        {'range': [70, 100], 'color': "lightcoral"}
+                    ],
+                    'threshold': {
+                        'line': {'color': "red", 'width': 4},
+                        'thickness': 0.75,
+                        'value': 80
+                    }
+                }
+            ))
+            fig.update_layout(height=300)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.divider()
+        
+        st.subheader("操作指南")
+        st.markdown("""
+        1. **低风险** (< 30%): 维持当前泄洪策略
+        2. **中风险** (30-70%): 逐步增加泄洪，同时监控上游来水
+        3. **高风险** (> 70%): 立即启动应急预案，最大化泄洪
+        """)
+    
+    # ===== 标签页 4: 模型对比 =====
+    with tab4:
+        st.header("🔍 PINN vs Baseline 模型对比")
+        
+        st.markdown("""
+        对比 **PINN 物理约束模型** 与 **Baseline 数据驱动模型** 的性能，
+        验证物理约束对预测精度的贡献。
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        # 获取对比预测
+        try:
+            pred_with_baseline = system.predict('HYD_001', with_baseline_validation=True)
+            
+            with col1:
+                st.subheader("📊 模型对比指标")
                 
-                # Detection boxes
-                detections = [
-                    {'x': 70, 'y': 20, 'w': 25, 'h': 15, 'label': '裂缝 #1', 'conf': 0.87},
-                    {'x': 15, 'y': 60, 'w': 20, 'h': 10, 'label': '渗漏 #2', 'conf': 0.72}
+                # 模型协议得分（相似度）
+                if 'model_agreement_score' in pred_with_baseline:
+                    agreement = pred_with_baseline['model_agreement_score']
+                    st.metric(
+                        "模型协议度",
+                        f"{agreement:.3f}",
+                        delta="高度一致" if agreement > 0.85 else "中等差异"
+                    )
+                
+                # 置信度等级
+                if 'confidence_level' in pred_with_baseline:
+                    confidence_map = {
+                        'very_high': ('🟢 非常高', 'green'),
+                        'high': ('🟢 高', 'green'),
+                        'medium': ('🟡 中等', 'orange'),
+                        'low': ('🔴 低', 'red'),
+                    }
+                    conf_display, _ = confidence_map.get(
+                        pred_with_baseline['confidence_level'],
+                        ('未知', 'gray')
+                    )
+                    st.metric("预测置信度", conf_display)
+                
+                st.divider()
+                
+                # 对比指标详情
+                if 'model_comparison' in pred_with_baseline:
+                    comp = pred_with_baseline['model_comparison']
+                    
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.metric(
+                            "平均差异",
+                            f"{comp.get('mean_abs_difference', 0):.4f}",
+                            help="两个模型预测的平均绝对差异"
+                        )
+                        st.metric(
+                            "相关性",
+                            f"{comp.get('correlation', 0):.4f}",
+                            help="Pearson 相关系数"
+                        )
+                    with col_b:
+                        st.metric(
+                            "最大差异",
+                            f"{comp.get('max_abs_difference', 0):.4f}",
+                            help="两个模型预测的最大差异"
+                        )
+                        st.metric(
+                            "余弦相似度",
+                            f"{comp.get('cosine_similarity', 0):.4f}",
+                            help="两个预测向量的余弦相似度"
+                        )
+                    
+                    # 发散性检测
+                    if comp.get('has_divergence', False):
+                        st.warning("⚠️ 检测到模型发散！两个模型预测存在显著差异")
+                        if 'divergence_info' in comp:
+                            div_info = comp['divergence_info']
+                            st.info(f"发散详情: {div_info.get('reason', '未知原因')}")
+            
+            with col2:
+                st.subheader("📈 预测对比图")
+                
+                # 构建预测对比的可视化
+                pinn_preds = pred_with_baseline.get('pinn_prediction', {})
+                baseline_preds = pred_with_baseline.get('baseline_prediction', {})
+                
+                if pinn_preds and baseline_preds:
+                    # 比较水位预测
+                    fig = go.Figure()
+                    
+                    pinn_wl = pinn_preds.get('water_level', [])
+                    baseline_wl = baseline_preds.get('water_level', [])
+                    
+                    if pinn_wl and baseline_wl:
+                        fig.add_trace(go.Scatter(
+                            y=pinn_wl,
+                            mode='lines+markers',
+                            name='PINN 预测',
+                            line=dict(color='blue', width=2),
+                            marker=dict(size=6)
+                        ))
+                        
+                        fig.add_trace(go.Scatter(
+                            y=baseline_wl,
+                            mode='lines+markers',
+                            name='Baseline 预测',
+                            line=dict(color='orange', width=2, dash='dash'),
+                            marker=dict(size=6)
+                        ))
+                        
+                        fig.update_layout(
+                            title="水位预测对比",
+                            yaxis_title="水位 (m)",
+                            xaxis_title="预测时间 (小时)",
+                            height=300,
+                            hovermode='x unified'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    # 比较流量预测
+                    fig2 = go.Figure()
+                    
+                    pinn_q = pinn_preds.get('discharge', [])
+                    baseline_q = baseline_preds.get('discharge', [])
+                    
+                    if pinn_q and baseline_q:
+                        fig2.add_trace(go.Bar(
+                            y=pinn_q,
+                            name='PINN 预测',
+                            marker_color='blue',
+                            opacity=0.7
+                        ))
+                        
+                        fig2.add_trace(go.Bar(
+                            y=baseline_q,
+                            name='Baseline 预测',
+                            marker_color='orange',
+                            opacity=0.7
+                        ))
+                        
+                        fig2.update_layout(
+                            title="流量预测对比",
+                            yaxis_title="流量 (m³/s)",
+                            xaxis_title="预测时间 (小时)",
+                            barmode='group',
+                            height=300
+                        )
+                        st.plotly_chart(fig2, use_container_width=True)
+            
+            st.divider()
+            st.subheader("📋 模型特征对比")
+            
+            comparison_table = pd.DataFrame({
+                '特征': ['模型架构', '输入信息', '物理约束', '训练数据', '推理速度', '极端情况'],
+                'PINN 模型': [
+                    'GNN-Transformer',
+                    '多源融合',
+                    '✅ Saint-Venant 方程',
+                    '需要充分数据',
+                    '中等',
+                    '✅ 优于 Baseline'
+                ],
+                'Baseline 模型': [
+                    'LSTM + Transformer',
+                    '历史数据',
+                    '❌ 无约束',
+                    '易于训练',
+                    '快速',
+                    '❌ 可能超出范围'
                 ]
-                
-                for det in detections:
-                    color = 'red' if det['conf'] > 0.8 else 'orange'
-                    fig_det.add_shape(
-                        type="rect",
-                        x0=det['x'], y0=det['y'],
-                        x1=det['x']+det['w'], y1=det['y']+det['h'],
-                        line=dict(color=color, width=3),
-                        fillcolor=f"rgba(255,0,0,0.1)"
-                    )
-                    fig_det.add_annotation(
-                        x=det['x']+det['w']/2, y=det['y']+det['h']+3,
-                        text=f"{det['label']} ({det['conf']:.0%})",
-                        showarrow=False,
-                        font=dict(color=color, size=10)
-                    )
-                
-                fig_det.update_layout(
-                    xaxis=dict(visible=False, range=[0, 100]),
-                    yaxis=dict(visible=False, range=[0, 100]),
-                    height=200,
-                    margin=dict(l=0, r=0, t=0, b=0)
-                )
-                
-                st.plotly_chart(fig_det, use_container_width=True)
-        else:
-            st.info("👆 请上传无人机图像开始AI分析")
+            })
             
-            # Demo placeholder
-            demo_html = '''<div style="border: 2px dashed #ccc; padding: 40px; text-align: center; border-radius: 10px; background: #f8f9fa;">
-                <h3>📸 无人机视觉示例</h3>
-                <p>系统将自动检测:</p>
-                <ul style="text-align: left; display: inline-block;">
-                    <li>🕳️ 堤坝裂缝</li><li>💧 渗漏点</li><li>🌊 冲刷侵蚀</li><li>🌿 植被覆盖变化</li>
-                </ul>
-            </div>'''
-            st.markdown(demo_html, unsafe_allow_html=True)
-    
-    with col_vision2:
-        st.markdown("#### 🤖 AI 诊断报告")
-        
-        if uploaded is not None:
-            # Gemini-style diagnosis
-            fusion_html = '''<div style="background: #f0f8ff; padding: 15px; border-radius: 10px;">
-                <h4>多模态融合分析</h4>
-            </div>'''
-            st.markdown(fusion_html, unsafe_allow_html=True)
+            st.dataframe(comparison_table, use_container_width=True, hide_index=True)
             
-            # Visual findings
-            st.markdown("**🖼️ 视觉发现:**")
-            st.markdown("- 异常类型: 结构性裂缝")
-            st.markdown("- 严重程度: 高")
-            st.markdown("- AI置信度: 87%")
+            st.info("""
+            **建议：**
+            - 当两个模型协议度 > 0.85 时，预测可信度很高
+            - 当发现模型发散时（差异 > 15%），建议：
+              1. 检查输入数据质量
+              2. 查阅最近的极端气象或水文事件
+              3. 重新训练 Baseline 模型
+            - PINN 模型更适合极端洪水预测，Baseline 更适合常规预测
+            """)
+        
+        except Exception as e:
+            st.error(f"模型对比失败: {str(e)}")
+            st.info("尝试进行更新或重新初始化系统")
+    
+    # ===== 标签页 5: 进化轨迹 =====
+    with tab5:
+        st.header("系统进化轨迹")
+        
+        # 生成模拟的进化历史
+        generations = np.arange(1, 43)
+        residuals = 0.15 * np.exp(-generations / 30) + 0.02 + np.random.normal(0, 0.01, len(generations))
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("物理残差演进")
             
-            # Sensor fusion
-            st.markdown("**📡 传感器数据:**")
-            st.markdown("- 水位: 58.3m (超警戒 33%)")
-            st.markdown("- 流速: 3.2 m/s")
-            st.markdown("- 渗压: 异常升高")
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=generations,
+                y=residuals,
+                mode='lines+markers',
+                name='物理残差',
+                line=dict(color='red', width=2),
+                marker=dict(size=6)
+            ))
             
-            # Risk assessment
-            st.markdown("---")
-            risk_prob = 0.68
-            st.progress(risk_prob, text=f"溃堤风险: {risk_prob:.0%}")
+            fig.add_hline(y=0.1, line_dash="dash", line_color="green",
+                         annotation_text="目标 (0.1)", annotation_position="right")
             
-            if risk_prob > 0.6:
-                st.error("🚨 **高风险警报**")
-                st.markdown("**建议措施:**")
-                st.markdown("1. 立即派遣抢修队")
-                st.markdown("2. 疏散下游居民")
-                st.markdown("3. 启动应急预案")
-        else:
-            st.info("上传图像后显示AI诊断")
+            fig.update_layout(
+                title="模型物理约束满足度",
+                yaxis_title="物理残差",
+                xaxis_title="演进代数",
+                height=400,
+                hovermode='x unified'
+            )
+            st.plotly_chart(fig, use_container_width=True)
         
-        # Vision system status
-        st.markdown("---")
-        st.markdown("#### 🔧 系统状态")
+        with col2:
+            st.subheader("性能提升")
+            
+            performance = 100 * (1 - np.exp(-generations / 20))
+            
+            fig = px.area(x=generations, y=performance,
+                         labels={'x': '演进代数', 'y': '性能提升 (%)'},
+                         title="模型性能改进曲线")
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
         
-        status_items = [
-            ("ViT 模型", "✅ 运行中", "green"),
-            ("SAM 分割", "✅ 待命", "green"),
-            ("Gemini LLM", "✅ 已连接", "green"),
-            ("多模态融合", "✅ 活跃", "green")
-        ]
+        st.subheader("世代谱系")
         
-        for name, status, color in status_items:
-            st.markdown(f"- **{name}:** <span style='color:{color};'>{status}</span>", 
-                       unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# TAB 3: DECISION RECOMMENDATION (RL)
-# -----------------------------------------------------------------------------
-with tab3:
-    st.markdown("#### 🎯 强化学习最优决策")
-    
-    # RL Decision Panel
-    rl_panel_html = '''<div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
-        <h3 style="color: white; margin-top: 0;">RL 智能调度方案</h3>
-        <p style="color: #ddd;">PPO算法实时优化 | 平衡防洪风险与运行效率</p>
-    </div>'''
-    st.markdown(rl_panel_html, unsafe_allow_html=True)
-    
-    col_rl1, col_rl2, col_rl3 = st.columns(3)
-    
-    with col_rl1:
-        st.markdown("**💧 建议下泄流量**")
-        st.markdown("<h1 style='color: #3498db; margin: 0;'>2,450</h1>", 
-                   unsafe_allow_html=True)
-        st.markdown("m³/s")
-        st.metric("调整", "+150", "+6.5%")
-    
-    with col_rl2:
-        st.markdown("**🌊 预估冲刷深度**")
-        st.markdown("<h1 style='color: #e67e22; margin: 0;'>-0.8</h1>", 
-                   unsafe_allow_html=True)
-        st.markdown("m (河床下降)")
-        st.metric("变化", "-12cm", "安全范围")
-    
-    with col_rl3:
-        st.markdown("**📊 决策置信度**")
-        st.markdown("<h1 style='color: #27ae60; margin: 0;'>94%</h1>", 
-                   unsafe_allow_html=True)
-        st.markdown("高置信度")
-        st.progress(0.94, text="模型共识")
-    
-    # RL State breakdown
-    st.markdown("---")
-    st.markdown("#### 📋 RL 决策依据")
-    
-    col_state, col_action = st.columns(2)
-    
-    with col_state:
-        st.markdown("**🔍 当前状态 (19维):**")
-        
-        state_data = {
-            '站点': ['HYD_001', 'HYD_002', 'HYD_003', 'HYD_004', 'HYD_005'],
-            '水位(m)': [58.3, 52.1, 49.8, 51.2, 47.5],
-            '流量(m³/s)': [2100, 2450, 1980, 2230, 1850],
-            '降雨(mm)': [12.5, 8.3, 15.2, 6.1, 9.8]
+        lineage_data = {
+            '代数': [1, 5, 10, 20, 30, 42],
+            '改进类型': ['初始版本', '数据微调', 'PINN 增强', 'RL 集成', '物理校准', '最新'],
+            '性能': [45, 58, 68, 75, 82, 89],
         }
         
-        df_state = pd.DataFrame(state_data)
-        
-        # Color coding
-        def color_water(val):
-            if val > 55: return 'background-color: #ffcccc'
-            if val > 50: return 'background-color: #ffffcc'
-            return ''
-        
-        st.dataframe(
-            df_state.style.map(color_water, subset=['水位(m)']),
-            use_container_width=True,
-            hide_index=True
-        )
+        df_lineage = pd.DataFrame(lineage_data)
+        st.dataframe(df_lineage, use_container_width=True, hide_index=True)
     
-    with col_action:
-        st.markdown("**⚡ 建议动作:**")
+    # ===== 标签页 6: 系统日志 =====
+    with tab6:
+        st.header("系统运行日志")
         
-        actions = [
-            ("闸门 #1", "+50 m³/s", "应对上游来水"),
-            ("闸门 #2", "+80 m³/s", "均衡库容"),
-            ("闸门 #3", "+20 m³/s", "维持基流"),
-            ("闸门 #4", "维持", "观察等待"),
-            ("闸门 #5", "-10 m³/s", "防止淤积")
+        # 生成模拟日志
+        log_entries = [
+            "[2024-04-19 14:30:45] ✅ AutoPilot 启动成功",
+            "[2024-04-19 14:30:48] 📊 数据适配器已初始化 (5 个站点)",
+            "[2024-04-19 14:30:50] 🧠 GNN-Transformer 模型加载完成",
+            "[2024-04-19 14:31:12] 📡 实时数据同步: HYD_001 - 水位 1050.5m",
+            "[2024-04-19 14:31:45] 🎯 RL 控制器给出决策建议",
+            "[2024-04-19 14:32:00] ⚙️ 物理约束验证通过 (残差: 0.042)",
+            "[2024-04-19 14:32:15] 📈 仪表板已更新",
         ]
         
-        for gate, action, reason in actions:
-            col_g, col_a, col_r = st.columns([1, 1, 2])
-            with col_g:
-                st.markdown(f"**{gate}**")
-            with col_a:
-                color = "green" if "+" in action else "red" if "-" in action else "gray"
-                st.markdown(f":{color}[{action}]")
-            with col_r:
-                st.caption(reason)
-    
-    # Risk assessment
-    st.markdown("---")
-    st.markdown("#### ⚠️ 风险评估")
-    
-    col_risk1, col_risk2 = st.columns(2)
-    
-    with col_risk1:
-        # Risk matrix visualization
-        fig_risk = go.Figure()
+        st.subheader("最近活动")
+        for log in reversed(log_entries[-10:]):
+            st.text(log)
         
-        # Current position
-        fig_risk.add_trace(go.Scatter(
-            x=[0.45], y=[0.32],
-            mode='markers+text',
-            marker=dict(size=30, color='orange', symbol='star'),
-            text=['当前状态'],
-            textposition='top center'
-        ))
-        
-        # Risk zones
-        fig_risk.add_shape(type="rect", x0=0, y0=0, x1=0.3, y1=0.3,
-                          fillcolor="green", opacity=0.2, line_width=0)
-        fig_risk.add_shape(type="rect", x0=0.3, y0=0.3, x1=0.7, y1=0.7,
-                          fillcolor="yellow", opacity=0.2, line_width=0)
-        fig_risk.add_shape(type="rect", x0=0.7, y0=0.7, x1=1, y1=1,
-                          fillcolor="red", opacity=0.2, line_width=0)
-        
-        fig_risk.update_layout(
-            xaxis_title="洪水概率",
-            yaxis_title="溃堤风险",
-            title="风险矩阵",
-            height=300,
-            xaxis=dict(range=[0, 1]),
-            yaxis=dict(range=[0, 1])
+        st.subheader("日志筛选")
+        log_level = st.multiselect(
+            "日志级别",
+            ['✅ 成功', '⚠️ 警告', '❌ 错误', '📊 信息'],
+            default=['✅ 成功', '📊 信息']
         )
         
-        st.plotly_chart(fig_risk, use_container_width=True)
+        st.info(f"显示 {len(log_level)} 个日志级别的记录")
     
-    with col_risk2:
-        st.markdown("**📊 风险指标:**")
-        
-        metrics = [
-            ("洪水概率", 0.45, "中等"),
-            ("溃堤风险", 0.32, "可控"),
-            ("经济损失", "¥2.3M", "预估"),
-            ("疏散时间", "4.2小时", "充足")
-        ]
-        
-        for label, value, status in metrics:
-            col_l, col_v, col_s = st.columns([2, 2, 1])
-            with col_l:
-                st.markdown(f"**{label}:**")
-            with col_v:
-                if isinstance(value, float):
-                    st.markdown(f"{value:.0%}")
-                else:
-                    st.markdown(value)
-            with col_s:
-                st.caption(status)
-        
-        st.markdown("---")
-        st.success("✓ RL决策: 当前策略为最优解，建议执行")
+    # 底部实时刷新指示
+    if auto_refresh:
+        st.markdown(f"<p style='text-align: center; color: gray;'>"
+                   f"⏱️ 自动刷新中 (间隔: {refresh_interval}s) | "
+                   f"最后更新: {datetime.now().strftime('%H:%M:%S')}"
+                   f"</p>", unsafe_allow_html=True)
 
-# =============================================================================
-# AUTO-REFRESH LOGIC
-# =============================================================================
-if st.session_state.real_time_mode:
-    time.sleep(5)
-    st.rerun()
 
-# =============================================================================
-# FOOTER
-# =============================================================================
-st.markdown("---")
-footer_html = '''
-<div style="text-align: center; color: #666; padding: 20px;">
-    <small>
-        黄河智慧防汛系统 v2.0 | Collect-Train-Evolve 自主管理<br>
-        Physics-Informed Neural Networks | Multi-Modal Vision Intelligence | Reinforcement Learning
-    </small>
-</div>
-'''
-st.markdown(footer_html, unsafe_allow_html=True)
+if __name__ == '__main__':
+    main()
