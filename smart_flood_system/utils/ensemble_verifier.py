@@ -26,8 +26,8 @@ import torch
 from torch_geometric.data import Data
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from scripts.pinn_model import YellowRiverPINN as PINNv1
-from scripts.pinn_model_v2 import YellowRiverPINNv2 as PINNv2
+from models.pinn_model import YellowRiverPINN as PINNv1
+from models.pinn_model_v2 import YellowRiverPINNv2 as PINNv2
 
 
 class EnsembleVerifier:

@@ -8,8 +8,8 @@ import glob
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scripts.pinn_model_v2 import YellowRiverPINNv2
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from models.pinn_model_v2 import YellowRiverPINNv2
 
 print("="*60)
 print("PINN v2.0 预测")
@@ -27,16 +27,17 @@ y_true = y[:365]
 print(f"\n测试数据: {len(X_test)} 天")
 print(f"真实水位: [{y_true[:,0].min():.3f}, {y_true[:,0].max():.3f}], 波动={y_true[:,0].max()-y_true[:,0].min():.3f}")
 
-# 查找最新的 PINN 模型
-pinn_dirs = glob.glob('models/pinn_v2_quick/*/best_model.pt')
-if not pinn_dirs:
-    pinn_dirs = glob.glob('models/pinn_v2_quick/*/best_model_adam.pt')
+# 查找 PINN 模型
+pinn_path = 'models/pinn/pinn_v2_quick_final.pt'
 
-if not pinn_dirs:
-    print("❌ 未找到 PINN 模型!")
-    exit(1)
-
-pinn_path = sorted(pinn_dirs)[-1]
+if not os.path.exists(pinn_path):
+    # 回退到 baseline 或 pinn 版本
+    pinn_dirs = glob.glob('models/pinn/*/best_model.pt')
+    if pinn_dirs:
+        pinn_path = sorted(pinn_dirs)[-1]
+    else:
+        print("❌ 未找到 PINN 模型!")
+        exit(1)
 print(f"\n加载模型: {pinn_path}")
 
 checkpoint = torch.load(pinn_path, map_location='cpu', weights_only=False)

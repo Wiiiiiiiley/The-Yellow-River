@@ -29,9 +29,9 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 # 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from scripts.pinn_model import YellowRiverPINN, compute_total_loss
+from models.pinn_model import YellowRiverPINN, compute_total_loss
 
 
 def set_seed(seed: int = 42):
@@ -433,7 +433,7 @@ def main():
         print("[Info] 生成示例数据进行演示训练...")
         
         # 生成示例数据
-        from scripts.pinn_model import YellowRiverPINN as _YP
+        from models.pinn_model import YellowRiverPINN as _YP
         x_demo = torch.randn(1000, 5)
         model_demo = _YP(input_dim=5, output_dim=2)
         with torch.no_grad():

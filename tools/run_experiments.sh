@@ -12,6 +12,9 @@
 
 set -e  # Exit on error
 
+# Navigate to project root (script is in tools/)
+cd "$(dirname "$0")/.."
+
 echo "========================================================================"
 echo "Yellow River PINN - Multi-Model Training Pipeline"
 echo "========================================================================"
@@ -25,10 +28,10 @@ echo ""
 # Ensure virtual environment is activated
 if [ -z "$VIRTUAL_ENV" ]; then
     echo "[Info] Activating virtual environment..."
-    source venv/bin/activate
+    source .venv/bin/activate
 fi
 
-PYTHON="venv/bin/python"
+PYTHON=".venv/bin/python"
 
 # =============================================================================
 # Experiment 1: PINN_SOTA (State-of-the-Art)
@@ -36,7 +39,7 @@ PYTHON="venv/bin/python"
 echo "========================================================================"
 echo "[Experiment 1/3] PINN_SOTA - Full Physics + L-BFGS Fine-tuning"
 echo "========================================================================"
-$PYTHON scripts/train_v2.py \
+$PYTHON scripts/training/train_v2.py \
     --epochs 200 \
     --lbfgs-epochs 100 \
     --batch-size 64 \
@@ -49,7 +52,7 @@ $PYTHON scripts/train_v2.py \
     --S0 0.001 \
     --B 50.0 \
     --max-grad-norm 1.0 \
-    --save-dir "models/pinn_v2/PINN_SOTA_${TIMESTAMP}" \
+    --save-dir "models/pinn/PINN_SOTA_${TIMESTAMP}" \
     --early-stop 30 \
     --seed 42
 
@@ -70,13 +73,13 @@ echo "========================================================================"
 echo "[Experiment 2/3] Baseline - Pure Data-Driven (No Physics)"
 echo "========================================================================"
 echo "[Note] Using v1.0 architecture without physics loss for pure comparison"
-$PYTHON scripts/train.py \
+$PYTHON scripts/training/train.py \
     --epochs 200 \
     --batch-size 64 \
     --lr 0.001 \
     --hidden-dim 64 \
     --lambda-phys 0.0 \
-    --save-dir "models/pinn_v2/Baseline_${TIMESTAMP}" \
+    --save-dir "models/baseline/Baseline_${TIMESTAMP}" \
     --early-stop 30 \
     --seed 42
 
@@ -96,7 +99,7 @@ echo ""
 echo "========================================================================"
 echo "[Experiment 3/3] Sensitive_n - Manning n=0.05 (Friction Sensitivity)"
 echo "========================================================================"
-$PYTHON scripts/train_v2.py \
+$PYTHON scripts/training/train_v2.py \
     --epochs 200 \
     --lbfgs-epochs 100 \
     --batch-size 64 \
@@ -109,7 +112,7 @@ $PYTHON scripts/train_v2.py \
     --S0 0.001 \
     --B 50.0 \
     --max-grad-norm 1.0 \
-    --save-dir "models/pinn_v2/Sensitive_n_${TIMESTAMP}" \
+    --save-dir "models/pinn/Sensitive_n_${TIMESTAMP}" \
     --early-stop 30 \
     --seed 42
 
@@ -131,14 +134,14 @@ echo "All Experiments Completed!"
 echo "========================================================================"
 echo ""
 echo "Results saved in:"
-echo "  - models/pinn_v2/PINN_SOTA_${TIMESTAMP}/"
-echo "  - models/pinn_v2/Baseline_${TIMESTAMP}/"
-echo "  - models/pinn_v2/Sensitive_n_${TIMESTAMP}/"
+echo "  - models/pinn/PINN_SOTA_${TIMESTAMP}/"
+echo "  - models/baseline/Baseline_${TIMESTAMP}/"
+echo "  - models/pinn/Sensitive_n_${TIMESTAMP}/"
 echo ""
 echo "Next steps:"
 echo "  1. Run consensus verification:"
-echo "     python scripts/verify_consensus.py --model-dir models/pinn_v2/"
+echo "     python scripts/verification/verify_consensus.py --model-dir models/pinn/"
 echo "  2. Run sensitivity analysis:"
-echo "     python scripts/train_v2.py --sensitivity-analysis --S0-range 0.0005,0.002"
+echo "     python scripts/training/train_v2.py --sensitivity-analysis --S0-range 0.0005,0.002"
 echo ""
 echo "========================================================================"

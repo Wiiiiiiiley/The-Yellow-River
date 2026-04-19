@@ -40,9 +40,9 @@ from matplotlib.patches import Patch
 rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 rcParams['axes.unicode_minus'] = False
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from scripts.pinn_model_v2 import YellowRiverPINNv2
-from scripts.pinn_model import YellowRiverPINN as YellowRiverPINNv1
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from models.pinn_model_v2 import YellowRiverPINNv2
+from models.pinn_model import YellowRiverPINN as YellowRiverPINNv1
 
 
 class ConsensusVerifier:

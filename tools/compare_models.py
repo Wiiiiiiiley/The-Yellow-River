@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scripts.pinn_model_v2 import YellowRiverPINNv2
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from models.pinn_model import YellowRiverPINNv2
 
 print("="*60)
 print("对比 Baseline 7D vs PINN v2.0")

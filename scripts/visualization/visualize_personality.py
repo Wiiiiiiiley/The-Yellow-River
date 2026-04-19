@@ -25,8 +25,8 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import seaborn as sns
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from scripts.train_v2_personality import YellowRiverPersonalityPINN, SeasonalEncoder
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from scripts.training.train_v2_personality import YellowRiverPersonalityPINN, SeasonalEncoder
 
 # 设置中文字体
 rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']

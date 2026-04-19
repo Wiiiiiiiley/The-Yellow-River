@@ -25,8 +25,8 @@ from matplotlib import rcParams
 rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 rcParams['axes.unicode_minus'] = False
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from scripts.pinn_model import YellowRiverPINN
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from models.pinn_model import YellowRiverPINN
 
 
 def load_model_and_norm_params(model_path: str, norm_params_path: str):

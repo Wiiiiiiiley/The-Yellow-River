@@ -27,8 +27,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from scripts.pinn_model_v2 import YellowRiverPINNv2, AdaptiveLossWeights, compute_total_loss_v2
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from models.pinn_model_v2 import YellowRiverPINNv2, AdaptiveLossWeights, compute_total_loss_v2
 
 
 def set_seed(seed: int = 42):
@@ -423,7 +423,7 @@ def main():
     if not os.path.exists(args.data_path):
         print(f"\n[Warning] Data not found, generating demo data...")
         os.makedirs(os.path.dirname(args.data_path), exist_ok=True)
-        from scripts.pinn_model_v2 import YellowRiverPINNv2 as YP2
+        from models.pinn_model_v2 import YellowRiverPINNv2 as YP2
         x_demo = torch.randn(1000, 5)
         m_demo = YP2(5, 2)
         with torch.no_grad():
