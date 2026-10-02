@@ -1,4 +1,33 @@
-# 智慧黄河防汛 PINN v3.0
+# 智慧黄河防汛 PINN v3.0 · 多河流比较研究
+
+## 多河流模型与个人网站展示
+
+新增黄河、密西西比河、长江、亚马孙河、尼罗河、多瑙河的独立训练与预测流程，以及黄河和密西西比河的双向迁移学习实验。所有新文件保存在本项目内，原有黄河训练入口与检查点保留。
+
+新实验使用物理引导图时序网络、相同架构的纯数据模型和持续性基线。每条河输入 24 小时、输出未来 6 小时，预测 5 个示意河段的水深、流量和泥沙浓度。默认数据为带传播滞后和曼宁水深关系的合成情景；河道参数尚未经实测校准。新增实验和原有完整 PINN 的方法、检查点及评估协议分开管理。
+
+```bash
+# 训练六条河，输出模型、预测、指标及三个随机种子的双向迁移结果
+python3 scripts/run_multi_river.py --epochs 25 --hours 8760 --transfer-seeds 42,43,44
+
+# 查看研究展示页面（也可直接打开 website/index.html）
+python3 -m http.server 8080
+# 浏览器打开 http://localhost:8080/website/
+
+# 从保存的模型重新预测，必须明确输入数据来源
+python3 scripts/predict_river.py --river mississippi \
+  --input experiments/multi_river/data/mississippi.csv --source-status synthetic \
+  --output experiments/multi_river/predictions/mississippi_reloaded.csv
+
+# 导出独立的静态网站目录，供个人网站托管
+python3 scripts/export_river_site.py --output public_river_lab
+```
+
+详细说明：[多河流研究方法](docs/multi_river_study.md)、[黄河与密西西比河比较](docs/yellow_mississippi_comparison.md)、[本次实验结果](docs/multi_river_results.md)、[个人网站发布指南](docs/publishing_guide.md)。预测、模型和下载文件位于 `experiments/multi_river/`。新增轻量流程使用 Python 3.10+、`torch` 与 `numpy`。
+
+原有 `create_enhanced_model` 现支持可配置的 `river_width` 与 `physical_prior`，以及非五节点图结构。默认五节点先验保持与原检查点一致。
+
+---
 
 **Physics-Informed Neural Network for Yellow River Flood Prediction** —— 基于物理信息神经网络的黄河洪水预测系统，对比验证物理约束对预测精度的提升。
 
@@ -41,6 +70,8 @@
 - ✅ **架构修复**: Baseline LSTM 与 PINN 公平对比（均处理5节点）
 - ✅ **中文支持**: 可视化图表正确显示中文
 - ✅ **归一化修复**: 自动输入归一化/输出反归一化
+- ✅ **物理量纲修复**: 物理损失在恢复米、m³/s、kg/m³ 后计算
+- ✅ **NTK 权重修复**: 直接计算两类损失的梯度范数
 - ⚠️ **数据限制**: 当前使用合成数据（需真实黄河数据体现PINN优势）
 
 ---
@@ -180,27 +211,22 @@ cat README_REAL_DATA.md
 4. **数据归一化与物理一致性**
    > "我解决了 PINN 训练中的关键工程问题：自动归一化输入/反归一化输出，确保物理方程在无量纲空间计算正确，同时预测结果恢复物理量纲（米、m³/s、kg/m³）。"
 
-### 关键发现（合成数据验证）
+### 实验结论状态
 
-```
-在合成洪水场景下（水位1000-1100m，流量1000-5000m³/s）：
-- 水位预测：PINN R² = 0.72，Baseline R² ≈ 0.68（接近）
-- 流量/泥沙预测：PINN 受物理约束限制，暂未达到预期优势
+旧检查点和图表使用了不公平的 Baseline 站点平均目标、独立的验证/测试归一化，以及未生效的 NTK 权重。这些历史指标已失效，不应用于支持 PINN 优于 Baseline 的结论。
 
-结论：合成数据缺乏真实物理规律，无法体现 PINN 在极端洪水下的稳定性优势。
-真实黄河数据（含"大水大沙"特性）是验证 PINN 价值的关键。
-```
+修正后的训练会写入 `protocol_version: 2`；预测和对比脚本会拒绝读取旧协议检查点。需重新运行 `python3 scripts/train_both_models.py` 后才能生成新的可比指标。
 
 ---
 
-## 🎯 当前性能基准（合成数据）
+## 🎯 当前性能基准（待重新训练）
 
 | 指标 | PINN | Baseline | 备注 |
 |------|------|----------|------|
 | 参数量 | 68.5万 | 33.6万 | PINN 多一倍 |
-| 水位 MAE | ~300 | ~270 | 接近 |
-| 水位 R² | 0.72 | 0.68 | 略优 |
-| 流量 R² | -0.94 | -1.10 | 均较差 |
+| 水位 MAE | 待测 | 待测 | protocol v2 |
+| 水位 R² | 待测 | 待测 | protocol v2 |
+| 流量 R² | 待测 | 待测 | protocol v2 |
 | 训练时间 | 15min | 8min | 50 epochs |
 
 **待验证**：真实数据下 PINN 物理约束应在极端场景显著优于 Baseline。

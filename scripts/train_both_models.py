@@ -91,10 +91,22 @@ def generate_training_data(n_samples=500, seq_len=24, n_nodes=5, n_features=6):
     return torch.from_numpy(data).float(), torch.from_numpy(targets).float()
 
 
-def normalize_data(data, targets):
-    """Z-score归一化"""
-    mean = data.mean(dim=(0, 1, 2), keepdim=True)
-    std = data.std(dim=(0, 1, 2), keepdim=True) + 1e-8
+def _feature_stats_view(stats, data):
+    """将特征统计量转换成可与时空张量广播的形状。"""
+    stats = torch.as_tensor(stats, dtype=data.dtype, device=data.device)
+    if stats.ndim == 1:
+        stats = stats.view(*([1] * (data.ndim - 1)), -1)
+    return stats
+
+
+def normalize_data(data, targets, mean=None, std=None):
+    """Z-score 归一化；验证集和测试集必须复用训练集统计量。"""
+    if mean is None or std is None:
+        mean = data.mean(dim=(0, 1, 2), keepdim=True)
+        std = data.std(dim=(0, 1, 2), keepdim=True) + 1e-8
+    else:
+        mean = _feature_stats_view(mean, data)
+        std = _feature_stats_view(std, data)
     
     data_norm = (data - mean) / std
     targets_norm = (targets - mean) / std
@@ -102,7 +114,15 @@ def normalize_data(data, targets):
     return data_norm, targets_norm, mean.squeeze(), std.squeeze()
 
 
-def train_pinn(model, physics_loss, train_data, train_targets, optimizer, device, epoch):
+def denormalize_data(data, mean, std):
+    """恢复物理量纲，供物理方程损失使用。"""
+    mean = _feature_stats_view(mean, data)
+    std = _feature_stats_view(std, data)
+    return data * std + mean
+
+
+def train_pinn(model, physics_loss, train_data, train_targets, optimizer, device, epoch,
+               feature_mean, feature_std):
     """训练PINN一个epoch"""
     model.train()
     total_loss = 0
@@ -120,16 +140,17 @@ def train_pinn(model, physics_loss, train_data, train_targets, optimizer, device
         # 数据损失
         data_loss = F.mse_loss(predictions, batch_targets)
         
-        # 物理损失
+        # 物理方程必须在米、m³/s、kg/m³ 等真实量纲下计算。
+        physical_predictions = denormalize_data(predictions, feature_mean, feature_std)
+        physical_targets = denormalize_data(batch_targets, feature_mean, feature_std)
+
         physics_loss_fn = physics_loss.to(device)
         physics_loss_fn.set_epoch(epoch)
         
-        h = predictions[:, :, :, 0]
-        Q = predictions[:, :, :, 1]
-        
         with torch.enable_grad():
             total_loss_batch, loss_dict = physics_loss_fn(
-                predictions, batch_targets, data_loss, model, dt=1.0, dx=1000.0
+                physical_predictions, physical_targets, data_loss, model,
+                dt=3600.0, dx=1000.0
             )
         
         total_loss_batch.backward()
@@ -153,14 +174,11 @@ def train_baseline(model, train_data, train_targets, optimizer, device):
         batch_data = train_data[i:i+batch_size].to(device)
         batch_targets = train_targets[i:i+batch_size].to(device)
         
-        # Baseline只处理第一个节点，需要调整target
-        # 取所有节点的平均值作为简化处理
-        batch_targets_avg = batch_targets.mean(dim=2, keepdim=True).expand(-1, -1, 5, -1)
-        
         optimizer.zero_grad()
         
         predictions = model(batch_data)
-        loss = F.mse_loss(predictions, batch_targets_avg)
+        # Baseline 也直接拟合每个站点，与 PINN 使用完全相同的目标。
+        loss = F.mse_loss(predictions, batch_targets)
         
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -185,11 +203,7 @@ def validate(model, val_data, val_targets, device, is_baseline=False):
             
             predictions = model(batch_data)
             
-            if is_baseline:
-                batch_targets_avg = batch_targets.mean(dim=2, keepdim=True).expand(-1, -1, 5, -1)
-                loss = F.mse_loss(predictions, batch_targets_avg)
-            else:
-                loss = F.mse_loss(predictions, batch_targets)
+            loss = F.mse_loss(predictions, batch_targets)
             
             total_loss += loss.item()
             n_batches += 1
@@ -197,7 +211,7 @@ def validate(model, val_data, val_targets, device, is_baseline=False):
     return total_loss / n_batches if n_batches > 0 else float('inf')
 
 
-def main():
+def main(epochs=50):
     print("="*70)
     print("🌊 双模型训练: PINN vs Baseline")
     print("="*70)
@@ -212,7 +226,9 @@ def main():
     
     # 归一化
     train_data, train_targets, data_mean, data_std = normalize_data(train_data, train_targets)
-    val_data, val_targets, _, _ = normalize_data(val_data, val_targets)
+    val_data, val_targets, _, _ = normalize_data(
+        val_data, val_targets, data_mean, data_std
+    )
     
     print(f"    训练集: {train_data.shape}")
     print(f"    验证集: {val_data.shape}")
@@ -275,7 +291,6 @@ def main():
     print("\n[4] 开始训练...")
     print("-"*70)
     
-    epochs = 50
     best_pinn_loss = float('inf')
     best_baseline_loss = float('inf')
     
@@ -284,7 +299,10 @@ def main():
     
     for epoch in range(epochs):
         # 训练PINN
-        pinn_train_loss = train_pinn(pinn_model, physics_loss, train_data, train_targets, pinn_optimizer, device, epoch)
+        pinn_train_loss = train_pinn(
+            pinn_model, physics_loss, train_data, train_targets, pinn_optimizer,
+            device, epoch, data_mean, data_std
+        )
         pinn_val_loss = validate(pinn_model, val_data, val_targets, device, is_baseline=False)
         
         # 训练Baseline
@@ -300,6 +318,7 @@ def main():
         if pinn_val_loss < best_pinn_loss:
             best_pinn_loss = pinn_val_loss
             torch.save({
+                'protocol_version': 2,
                 'epoch': epoch,
                 'model_state_dict': pinn_model.state_dict(),
                 'optimizer_state_dict': pinn_optimizer.state_dict(),
@@ -312,6 +331,7 @@ def main():
         if baseline_val_loss < best_baseline_loss:
             best_baseline_loss = baseline_val_loss
             torch.save({
+                'protocol_version': 2,
                 'epoch': epoch,
                 'model_state_dict': baseline_model.state_dict(),
                 'optimizer_state_dict': baseline_optimizer.state_dict(),
@@ -338,7 +358,9 @@ def main():
     
     # 测试数据
     test_data, test_targets = generate_training_data(n_samples=50)
-    test_data, test_targets, _, _ = normalize_data(test_data, test_targets)
+    test_data, test_targets, _, _ = normalize_data(
+        test_data, test_targets, data_mean, data_std
+    )
     test_data = test_data.to(device)
     test_targets = test_targets.to(device)
     
@@ -346,14 +368,11 @@ def main():
         pinn_pred = pinn_model(test_data)
         baseline_pred = baseline_model(test_data)
         
-        # Baseline需要调整target
-        test_targets_avg = test_targets.mean(dim=2, keepdim=True).expand(-1, -1, 5, -1)
-        
         pinn_mse = F.mse_loss(pinn_pred, test_targets).item()
-        baseline_mse = F.mse_loss(baseline_pred, test_targets_avg).item()
+        baseline_mse = F.mse_loss(baseline_pred, test_targets).item()
         
         pinn_mae = torch.mean(torch.abs(pinn_pred - test_targets)).item()
-        baseline_mae = torch.mean(torch.abs(baseline_pred - test_targets_avg)).item()
+        baseline_mae = torch.mean(torch.abs(baseline_pred - test_targets)).item()
     
     print(f"\n    📊 PINN (STGNN+物理约束):")
     print(f"      MSE: {pinn_mse:.4f}")
@@ -368,6 +387,7 @@ def main():
     
     # 保存训练历史
     history = {
+        'protocol_version': 2,
         'pinn': pinn_history,
         'baseline': baseline_history,
         'final_metrics': {

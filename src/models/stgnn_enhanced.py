@@ -103,7 +103,8 @@ class PhysicsGuidedAttention(nn.Module):
     - 相邻站点相关性最高
     """
     
-    def __init__(self, hidden_dim: int, n_nodes: int = 5, n_heads: int = 8, dropout: float = 0.1):
+    def __init__(self, hidden_dim: int, n_nodes: int = 5, n_heads: int = 8, dropout: float = 0.1,
+                 physical_prior=None):
         super(PhysicsGuidedAttention, self).__init__()
         
         self.hidden_dim = hidden_dim
@@ -119,13 +120,29 @@ class PhysicsGuidedAttention(nn.Module):
         
         # 物理先验矩阵 (黄河: 兰州→河口镇→龙门→三门峡→花园口)
         # 数值表示水力影响强度
-        physical_prior = torch.tensor([
+        legacy_prior = torch.tensor([
             [1.00, 0.85, 0.70, 0.55, 0.40],  # 兰州
             [0.30, 1.00, 0.85, 0.70, 0.55],  # 河口镇
             [0.20, 0.30, 1.00, 0.85, 0.70],  # 龙门
             [0.15, 0.20, 0.30, 1.00, 0.85],  # 三门峡
             [0.10, 0.15, 0.20, 0.35, 1.00],  # 花园口
         ])
+        if physical_prior is None:
+            if n_nodes == 5:
+                # Retain the original five-node checkpoint behavior.
+                physical_prior = legacy_prior
+            else:
+                # Rows are receiving nodes, columns are contributing nodes.
+                receiving = torch.arange(n_nodes).unsqueeze(1)
+                contributing = torch.arange(n_nodes).unsqueeze(0)
+                distance = (receiving - contributing).abs().float()
+                physical_prior = torch.where(receiving >= contributing,
+                                             0.85 ** distance, 0.30 ** distance)
+        physical_prior = torch.as_tensor(physical_prior, dtype=torch.float32)
+        if physical_prior.shape != (n_nodes, n_nodes):
+            raise ValueError('physical_prior must have shape (n_nodes, n_nodes)')
+        if not torch.isfinite(physical_prior).all() or (physical_prior < 0).any():
+            raise ValueError('physical_prior must be finite and nonnegative')
         self.register_buffer('physical_prior', physical_prior)
         
         # 学习残差注意力权重
@@ -548,7 +565,9 @@ class EnhancedSTGNN(nn.Module):
                  use_adaptive_gnn: bool = True,
                  use_multiscale_temporal: bool = True,
                  use_physics_postprocess: bool = True,
-                 use_bayesian: bool = False):
+                 use_bayesian: bool = False,
+                 river_width: float = 500.0,
+                 physical_prior=None):
         super(EnhancedSTGNN, self).__init__()
         
         self.node_features = node_features
@@ -556,6 +575,8 @@ class EnhancedSTGNN(nn.Module):
         self.gnn_hidden = gnn_hidden
         self.sequence_length = sequence_length
         self.prediction_horizon = prediction_horizon
+        if not np.isfinite(river_width) or river_width <= 0:
+            raise ValueError('river_width must be a positive finite width in meters')
         
         # 配置开关
         self.use_physics_attention = use_physics_attention
@@ -588,7 +609,8 @@ class EnhancedSTGNN(nn.Module):
         # 物理引导注意力 (替代标准注意力)
         if use_physics_attention:
             self.physics_attn = PhysicsGuidedAttention(
-                gnn_hidden, n_nodes=n_nodes, n_heads=transformer_heads
+                gnn_hidden, n_nodes=n_nodes, n_heads=transformer_heads,
+                physical_prior=physical_prior
             )
         
         # 时间编码: 多尺度或标准 Transformer
@@ -621,7 +643,7 @@ class EnhancedSTGNN(nn.Module):
         # 物理感知后处理
         if use_physics_postprocess:
             self.post_processor = PhysicsInformedPostProcessor(
-                node_features, gnn_hidden // 2
+                node_features, gnn_hidden // 2, river_width=river_width
             )
         
         # 时间位置编码
@@ -768,7 +790,9 @@ def create_enhanced_model(config: dict) -> nn.Module:
         use_adaptive_gnn=config.get('use_adaptive_gnn', True),
         use_multiscale_temporal=config.get('use_multiscale_temporal', True),
         use_physics_postprocess=config.get('use_physics_postprocess', True),
-        use_bayesian=config.get('use_bayesian', False)
+        use_bayesian=config.get('use_bayesian', False),
+        river_width=config.get('river_width', 500.0),
+        physical_prior=config.get('physical_prior')
     )
 
 

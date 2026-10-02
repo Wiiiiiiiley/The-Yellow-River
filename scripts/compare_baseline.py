@@ -270,7 +270,6 @@ def main():
     # 生成测试数据
     print("\n[1] 生成测试数据...")
     test_data, test_targets, timestamps = generate_test_data(n_samples=100)
-    test_data = test_data.to(device)
     test_targets = test_targets.to(device)
     print(f"    数据形状: {test_data.shape}")
     
@@ -313,15 +312,38 @@ def main():
     print(f"    PINN (STGNN+物理约束): {pinn_params:,} 参数")
     print(f"    Baseline (LSTM): {baseline_params:,} 参数")
     
-    # 加载训练好的权重（如果有）
-    checkpoint_path = Path('experiments/models/best_model.pth')
-    if checkpoint_path.exists():
-        print(f"\n[3] 加载训练好的 PINN 模型...")
-        checkpoint = torch.load(checkpoint_path, map_location=device)
-        pinn_model.load_state_dict(checkpoint['model_state_dict'])
-        print("    PINN 模型加载成功")
-    else:
-        print("\n[3] 未找到训练好的模型，使用随机权重进行对比演示")
+    # 对比必须使用同一次训练产生的两个检查点，禁止随机权重参与指标计算。
+    pinn_checkpoint_path = Path('experiments/models/pinn_best.pth')
+    if not pinn_checkpoint_path.exists():
+        pinn_checkpoint_path = Path('experiments/models/best_model.pth')
+    baseline_checkpoint_path = Path('experiments/models/baseline_best.pth')
+    if not pinn_checkpoint_path.exists() or not baseline_checkpoint_path.exists():
+        raise FileNotFoundError("缺少 PINN 或 Baseline 检查点，请先运行 scripts/train_both_models.py")
+
+    print(f"\n[3] 加载训练好的 PINN 和 Baseline 模型...")
+    pinn_checkpoint = torch.load(pinn_checkpoint_path, map_location=device)
+    baseline_checkpoint = torch.load(baseline_checkpoint_path, map_location=device)
+    if (pinn_checkpoint.get('protocol_version', 1) < 2 or
+            baseline_checkpoint.get('protocol_version', 1) < 2):
+        raise RuntimeError("现有检查点使用旧的站点平均目标协议，请重新运行 scripts/train_both_models.py")
+    pinn_model.load_state_dict(pinn_checkpoint['model_state_dict'])
+    baseline_model.load_state_dict(baseline_checkpoint['model_state_dict'])
+
+    pinn_mean = pinn_checkpoint.get('mean', pinn_checkpoint.get('data_mean'))
+    pinn_std = pinn_checkpoint.get('std', pinn_checkpoint.get('data_std'))
+    baseline_mean = baseline_checkpoint.get('mean', baseline_checkpoint.get('data_mean'))
+    baseline_std = baseline_checkpoint.get('std', baseline_checkpoint.get('data_std'))
+    if any(value is None for value in [pinn_mean, pinn_std, baseline_mean, baseline_std]):
+        raise KeyError("检查点缺少训练集 mean/std")
+
+    pinn_mean = pinn_mean.squeeze().view(1, 1, 1, -1).to(device)
+    pinn_std = pinn_std.squeeze().view(1, 1, 1, -1).to(device)
+    baseline_mean = baseline_mean.squeeze().view(1, 1, 1, -1).to(device)
+    baseline_std = baseline_std.squeeze().view(1, 1, 1, -1).to(device)
+    test_data = test_data.to(device)
+    pinn_inputs = (test_data - pinn_mean) / pinn_std
+    baseline_inputs = (test_data - baseline_mean) / baseline_std
+    print("    两个模型及其训练集归一化参数加载成功")
     
     pinn_model.eval()
     baseline_model.eval()
@@ -329,8 +351,10 @@ def main():
     # 生成预测
     print("\n[4] 生成预测...")
     with torch.no_grad():
-        pinn_pred = pinn_model(test_data)
-        baseline_pred = baseline_model(test_data)
+        pinn_pred_norm = pinn_model(pinn_inputs)
+        baseline_pred_norm = baseline_model(baseline_inputs)
+        pinn_pred = pinn_pred_norm * pinn_std + pinn_mean
+        baseline_pred = baseline_pred_norm * baseline_std + baseline_mean
     
     print(f"    PINN预测: {pinn_pred.shape}")
     print(f"    Baseline预测: {baseline_pred.shape}")

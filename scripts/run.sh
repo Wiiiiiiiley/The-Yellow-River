@@ -46,29 +46,29 @@ case $choice in
     1)
         echo ""
         echo "启动完整系统..."
-        python smart_flood_system/main_system.py --mode full
+        python -m src.core.main_system --mode full
         ;;
     2)
         echo ""
         echo "启动仪表板 v2..."
         echo "打开浏览器访问: http://localhost:8501"
         echo ""
-        streamlit run smart_flood_system/app/dashboard_v2.py --server.port 8501
+        streamlit run src/core/dashboard_v2.py --server.port 8501
         ;;
     3)
         echo ""
         echo "启动 CLI 监控器..."
-        python smart_flood_system/monitor.py
+        python -m src.core.monitor
         ;;
     4)
         echo ""
         echo "启动 AutoPilot 自主系统..."
-        python smart_flood_system/auto_pilot.py --mode full
+        python -m src.core.auto_pilot --mode full
         ;;
     5)
         echo ""
         echo "启动训练模式..."
-        python smart_flood_system/main_system.py --mode train
+        python -m src.core.main_system --mode train
         ;;
     *)
         echo "无效选择"

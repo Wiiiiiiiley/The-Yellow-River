@@ -98,11 +98,17 @@ def generate_training_data(n_samples=500, seq_len=24, n_nodes=5, n_features=6):
     return torch.from_numpy(data).float(), torch.from_numpy(targets).float()
 
 
-def normalize_data(data, targets):
+def normalize_data(data, targets, data_mean=None, data_std=None):
     """数据归一化"""
-    # 计算统计量
-    data_mean = data.mean(dim=(0, 1, 2), keepdim=True)
-    data_std = data.std(dim=(0, 1, 2), keepdim=True) + 1e-8
+    if data_mean is None or data_std is None:
+        data_mean = data.mean(dim=(0, 1, 2), keepdim=True)
+        data_std = data.std(dim=(0, 1, 2), keepdim=True) + 1e-8
+    else:
+        data_mean = torch.as_tensor(data_mean, dtype=data.dtype, device=data.device)
+        data_std = torch.as_tensor(data_std, dtype=data.dtype, device=data.device)
+        if data_mean.ndim == 1:
+            data_mean = data_mean.view(1, 1, 1, -1)
+            data_std = data_std.view(1, 1, 1, -1)
     
     # 归一化
     data_norm = (data - data_mean) / data_std
@@ -111,7 +117,8 @@ def normalize_data(data, targets):
     return data_norm, targets_norm, data_mean, data_std
 
 
-def train_epoch(model, physics_loss, train_data, train_targets, optimizer, device, epoch):
+def train_epoch(model, physics_loss, train_data, train_targets, optimizer, device, epoch,
+                data_mean, data_std):
     """训练一个 epoch"""
     
     model.train()
@@ -127,6 +134,8 @@ def train_epoch(model, physics_loss, train_data, train_targets, optimizer, devic
         batch_indices = indices[i:i+batch_size]
         batch_data = train_data[batch_indices].to(device)
         batch_targets = train_targets[batch_indices].to(device)
+
+        optimizer.zero_grad()
         
         # 前向传播
         predictions = model(batch_data)
@@ -134,17 +143,21 @@ def train_epoch(model, physics_loss, train_data, train_targets, optimizer, devic
         # 数据损失
         data_loss = F.mse_loss(predictions, batch_targets)
         
-        # 物理损失
-        physics_weight = min(0.1 + epoch * 0.001, 1.0)  # 逐渐增加物理约束
-        physics_total, loss_dict = physics_loss(
-            predictions, batch_targets, data_loss, model=model
+        mean = data_mean.to(device)
+        std = data_std.to(device)
+        physical_predictions = predictions * std + mean
+        physical_targets = batch_targets * std + mean
+        physics_loss.set_epoch(epoch)
+        loss, loss_dict = physics_loss(
+            physical_predictions,
+            physical_targets,
+            data_loss,
+            model=model,
+            dt=3600.0,
+            dx=1000.0,
         )
         
-        # 组合损失
-        loss = data_loss + physics_weight * physics_total
-        
         # 反向传播
-        optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
@@ -189,7 +202,9 @@ def main():
     
     # 归一化
     train_data, train_targets, data_mean, data_std = normalize_data(train_data, train_targets)
-    val_data, val_targets, _, _ = normalize_data(val_data, val_targets)
+    val_data, val_targets, _, _ = normalize_data(
+        val_data, val_targets, data_mean, data_std
+    )
     
     print(f"    训练集: {train_data.shape}")
     print(f"    验证集: {val_data.shape}")
@@ -245,7 +260,10 @@ def main():
     
     for epoch in range(100):
         # 训练
-        train_loss = train_epoch(model, physics_loss, train_data, train_targets, optimizer, device, epoch)
+        train_loss = train_epoch(
+            model, physics_loss, train_data, train_targets, optimizer, device,
+            epoch, data_mean, data_std
+        )
         
         # 验证
         val_loss = validate(model, val_data, val_targets, device)
@@ -268,13 +286,14 @@ def main():
             save_dir.mkdir(parents=True, exist_ok=True)
             
             torch.save({
+                'protocol_version': 2,
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_loss': val_loss,
-                'model_config': model_config,
-                'data_mean': data_mean,
-                'data_std': data_std,
+                'config': model_config,
+                'mean': data_mean.squeeze(),
+                'std': data_std.squeeze(),
             }, save_dir / "best_model.pth")
     
     print("-" * 70)
@@ -283,6 +302,7 @@ def main():
     print(f"    模型保存于: experiments/models/best_model.pth")
     
     # 保存训练历史
+    Path("experiments/logs").mkdir(parents=True, exist_ok=True)
     history_df = pd.DataFrame(history)
     history_df.to_csv("experiments/logs/training_history.csv", index=False)
     

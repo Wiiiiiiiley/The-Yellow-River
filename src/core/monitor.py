@@ -18,6 +18,7 @@ class Colors:
     RED = '\033[91m'
     BLUE = '\033[94m'
     CYAN = '\033[96m'
+    GRAY = '\033[90m'
     END = '\033[0m'
     BOLD = '\033[1m'
 
@@ -58,7 +59,7 @@ def print_status_item(label: str, value: str, status: str = "ok"):
 def get_system_status() -> dict:
     """获取系统状态"""
     try:
-        from smart_flood_system.main_system import SmartFloodSystem
+        from src.core.main_system import SmartFloodSystem
         system = SmartFloodSystem()
         status = system.get_system_status()
         return status
@@ -123,7 +124,7 @@ def get_model_status() -> dict:
 def get_data_status() -> dict:
     """获取数据状态"""
     try:
-        from smart_flood_system.data_adapter import get_data_adapter
+        from src.data.data_adapter import get_data_adapter
         adapter = get_data_adapter()
         
         # 获取最新读数
@@ -201,7 +202,7 @@ def display_main_dashboard():
     # 底部信息
     print(f"\n{Colors.GRAY}")
     print("=" * 60)
-    print("💡 更多功能: streamlit run smart_flood_system/app/dashboard_v2.py")
+    print("💡 更多功能: streamlit run src/core/dashboard_v2.py")
     print("=" * 60)
     print(f"{Colors.END}\n")
 
@@ -293,7 +294,7 @@ def trigger_evolution():
     print("尝试手动触发进化循环...")
     
     try:
-        from smart_flood_system.auto_pilot import AutoPilot
+        from src.core.auto_pilot import AutoPilot
         import asyncio
         
         autopilot = AutoPilot()

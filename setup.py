@@ -2,20 +2,20 @@
 设置脚本
 """
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
     name="smart-flood-system",
-    version="2.0.0",
+    version="3.0.0",
     author="Yellow River Digital Twin Project",
     description="智慧黄河防汛决策系统 - 端到端智能防洪控制系统",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Wiiiiiiiley/The-Yellow-River",
-    packages=find_packages(),
+    packages=find_namespace_packages(include=["src", "src.*"]),
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
@@ -38,9 +38,9 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "syrfms=smart_flood_system.main_system:main",
-            "autopilot=smart_flood_system.auto_pilot:main",
-            "monitor=smart_flood_system.monitor:main",
+            "syrfms=src.core.main_system:main",
+            "autopilot=src.core.auto_pilot:main",
+            "monitor=src.core.monitor:main",
         ],
     },
 )

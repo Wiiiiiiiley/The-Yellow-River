@@ -6,7 +6,6 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-import pandas as pd
 import yaml
 import logging
 import argparse
@@ -14,15 +13,13 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Tuple, Optional
 
-from smart_flood_system.data_adapter import get_data_adapter
-from smart_flood_system.models.graph_transformer.stgnn import create_model
-from smart_flood_system.models.graph_transformer.stgnn_enhanced import create_enhanced_model
-from smart_flood_system.models.pinn_loss.physics_constraints_enhanced import (
+from src.data.data_adapter import get_data_adapter
+from src.models.stgnn_enhanced import create_enhanced_model
+from src.models.physics_constraints_enhanced import (
     EnhancedPhysicsConstraintLoss, BoundaryConditionEnforcer
 )
-from smart_flood_system.models.rl_agent.flood_controller import PPOAgent, FloodControlEnvironment
-from smart_flood_system.models.baseline.baseline_models import create_baseline_model
-from smart_flood_system.utils.ensemble_verifier import MultiModelValidator
+from src.models.baseline_models import create_baseline_model
+from src.utils.ensemble_verifier import MultiModelValidator, EnsembleValidator
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +27,7 @@ logger = logging.getLogger(__name__)
 class SmartFloodSystem:
     """智慧防汛系统核心"""
     
-    def __init__(self, config_path: str = "smart_flood_system/configs/system_config.yaml"):
+    def __init__(self, config_path: str = "configs/system_config.yaml"):
         """初始化系统"""
         
         self.config = self._load_config(config_path)
@@ -60,24 +57,19 @@ class SmartFloodSystem:
         # GNN-Transformer 模型（主模型 - PINN）
         model_config = self.config.get('models', {}).get('gnn_transformer', {})
         
-        # 选择使用增强版或标准版
-        use_enhanced = model_config.get('use_enhanced', True)
-        if use_enhanced:
-            logger.info("使用增强版 STGNN v3.0 (物理注意力 + 自适应GNN + 多尺度时间)")
-            self.gnn_model = create_enhanced_model(model_config)
-        else:
-            logger.info("使用标准版 STGNN")
-            self.gnn_model = create_model(model_config)
+        logger.info("使用增强版 STGNN v3.0 (物理注意力 + 自适应GNN + 多尺度时间)")
+        self.gnn_model = create_enhanced_model(model_config)
         
         self.gnn_model = self.gnn_model.to(self.device)
         
         # Baseline 模型（纯数据驱动）
         self.baseline_model = create_baseline_model(
-            model_type='ensemble',
+            model_type='lstm',
             input_size=6,
             hidden_size=128,
             output_size=6,
-            prediction_horizon=6
+            prediction_horizon=6,
+            n_nodes=model_config.get('n_nodes', 5),
         )
         self.baseline_model = self.baseline_model.to(self.device)
         
@@ -86,6 +78,10 @@ class SmartFloodSystem:
             pinn_model=self.gnn_model,
             baseline_model=self.baseline_model,
             device=str(self.device)
+        )
+        self.ensemble_validator = EnsembleValidator(
+            models=[self.gnn_model, self.baseline_model],
+            device=str(self.device),
         )
         
         # PINN 物理约束 (增强版 v2.0)
@@ -109,20 +105,8 @@ class SmartFloodSystem:
             downstream_station_idx=4    # 花园口
         )
         
-        # RL 智能体
-        rl_config = self.config.get('models', {}).get('rl', {})
-        learning_rate = rl_config.get('learning_rate', 3e-4)
-        # 确保 learning_rate 是浮点数
-        if isinstance(learning_rate, str):
-            learning_rate = float(learning_rate)
-        
-        self.rl_agent = PPOAgent(
-            state_dim=rl_config.get('state_dim', 19),
-            action_dim=rl_config.get('action_dim', 5),
-            learning_rate=learning_rate,
-            gamma=rl_config.get('gamma', 0.99),
-            device=str(self.device)
-        )
+        # 仓库已不包含原 RL 实现，显式标记为不可用，避免伪造决策建议。
+        self.rl_agent = None
         
         # 优化器
         training_config = self.config.get('training', {})
@@ -134,8 +118,41 @@ class SmartFloodSystem:
             self.gnn_model.parameters(),
             lr=training_lr
         )
+
+        self.model_ready = False
+        self.feature_mean = None
+        self.feature_std = None
+        self._load_experiment_checkpoints()
         
         logger.info("模型初始化完成（包含 PINN 主模型和 Baseline 对比模型）")
+
+    def _load_experiment_checkpoints(self):
+        """只加载使用当前公平对比协议训练的成对模型。"""
+        pinn_path = Path("experiments/models/pinn_best.pth")
+        baseline_path = Path("experiments/models/baseline_best.pth")
+        if not pinn_path.exists() or not baseline_path.exists():
+            logger.warning("未找到成对的 PINN/Baseline 检查点，预测功能暂不可用")
+            return
+
+        pinn_checkpoint = torch.load(pinn_path, map_location=self.device)
+        baseline_checkpoint = torch.load(baseline_path, map_location=self.device)
+        if (pinn_checkpoint.get('protocol_version', 1) < 2 or
+                baseline_checkpoint.get('protocol_version', 1) < 2):
+            logger.warning("检测到旧评估协议检查点，请重新运行 scripts/train_both_models.py")
+            return
+
+        mean = pinn_checkpoint.get('mean', pinn_checkpoint.get('data_mean'))
+        std = pinn_checkpoint.get('std', pinn_checkpoint.get('data_std'))
+        if mean is None or std is None:
+            logger.warning("PINN 检查点缺少训练集 mean/std，预测功能暂不可用")
+            return
+
+        self.gnn_model.load_state_dict(pinn_checkpoint['model_state_dict'])
+        self.baseline_model.load_state_dict(baseline_checkpoint['model_state_dict'])
+        self.feature_mean = mean.squeeze().view(1, 1, 1, -1).to(self.device)
+        self.feature_std = std.squeeze().view(1, 1, 1, -1).to(self.device)
+        self.model_ready = True
+        logger.info("已加载 protocol v2 PINN/Baseline 检查点")
     
     def predict(self, station_id: str = 'HYD_001', 
                sequence_length: int = 24,
@@ -148,15 +165,33 @@ class SmartFloodSystem:
             sequence_length: 序列长度
             with_baseline_validation: 是否进行 baseline 对比验证
         """
+
+        if not self.model_ready:
+            raise RuntimeError("没有可用的 protocol v2 模型，请先运行 scripts/train_both_models.py")
         
-        # 获取输入数据
-        inputs, feature_stats = self.data_adapter.get_prediction_inputs(
-            station_id, sequence_length=sequence_length
-        )
-        
-        # 转换为张量（添加 batch 维和节点维）
-        inputs_tensor = torch.from_numpy(inputs).float().unsqueeze(0).unsqueeze(0)
-        inputs_tensor = inputs_tensor.to(self.device)
+        station_ids = list(self.data_adapter.STATIONS.keys())
+        if station_id not in station_ids:
+            raise ValueError(f"未知站点: {station_id}")
+
+        # STGNN 必须同时接收整条河道的 5 个节点，不能把单站时间维
+        # 误当成节点维。逐站取得序列后组装为 (time, nodes, features)。
+        node_inputs = []
+        for current_station_id in station_ids:
+            station_inputs, station_stats = self.data_adapter.get_prediction_inputs(
+                current_station_id, sequence_length=sequence_length
+            )
+            # DataAdapter 返回单站归一化值；先恢复原始水文量，再使用
+            # 训练集全局统计量归一化，保证推理与训练一致。
+            raw_inputs = station_inputs.copy()
+            raw_inputs[:, :5] = (
+                station_inputs[:, :5] * station_stats['std'] + station_stats['mean']
+            )
+            node_inputs.append(raw_inputs)
+
+        network_inputs = np.stack(node_inputs, axis=1)
+        inputs_tensor = torch.from_numpy(network_inputs).float().unsqueeze(0).to(self.device)
+        inputs_tensor = (inputs_tensor - self.feature_mean) / self.feature_std
+        station_index = station_ids.index(station_id)
         
         # PINN 模型预测（主模型）
         with torch.no_grad():
@@ -164,8 +199,8 @@ class SmartFloodSystem:
             outputs = self.gnn_model(inputs_tensor)
         
         # 反标准化
-        outputs_np = outputs.cpu().numpy()[0, :, 0, :]  # (pred_horizon, features)
-        outputs_denorm = outputs_np * feature_stats['std'] + feature_stats['mean']
+        outputs = outputs * self.feature_std + self.feature_mean
+        outputs_denorm = outputs.cpu().numpy()[0, :, station_index, :5]
         
         # 提取 PINN 预测结果
         predictions = {
@@ -188,8 +223,8 @@ class SmartFloodSystem:
                 baseline_outputs = self.baseline_model(inputs_tensor)
             
             # 反标准化
-            baseline_outputs_np = baseline_outputs.cpu().numpy()[0, :, 0, :]
-            baseline_outputs_denorm = baseline_outputs_np * feature_stats['std'] + feature_stats['mean']
+            baseline_outputs = baseline_outputs * self.feature_std + self.feature_mean
+            baseline_outputs_denorm = baseline_outputs.cpu().numpy()[0, :, station_index, :5]
             
             # 添加 Baseline 预测
             predictions['baseline_prediction'] = {
@@ -249,48 +284,49 @@ class SmartFloodSystem:
             'timestamp': datetime.now().isoformat()
         }
     
-    def get_ensemble_validation(self, predictions: torch.Tensor,
-                               ground_truth: torch.Tensor) -> Dict:
+    def get_ensemble_validation(self, inputs: torch.Tensor,
+                               ground_truth: Optional[torch.Tensor] = None) -> Dict:
         """
         获取集成模型验证结果（多模型投票）
         
         Args:
-            predictions: 预测结果
-            ground_truth: 真实值
+            inputs: 模型输入
+            ground_truth: 真实值（可选）
         
         Returns:
             集成验证结果
         """
-        ensemble_result = self.validator.ensemble_validator.get_ensemble_prediction(
-            predictions, ground_truth
-        )
-        return ensemble_result
+        inputs = inputs.to(self.device)
+        ensemble_prediction, uncertainty, details = self.ensemble_validator.ensemble_predict(inputs)
+        result = {
+            'prediction': ensemble_prediction,
+            'uncertainty': uncertainty,
+            'details': details,
+        }
+        if ground_truth is not None:
+            result['mse'] = F.mse_loss(
+                ensemble_prediction, ground_truth.to(self.device)
+            ).item()
+        return result
     
     def get_rl_recommendations(self, current_state: np.ndarray) -> Dict:
         """获取 RL 泄洪建议"""
-        
-        action, _, _ = self.rl_agent.select_action(current_state, deterministic=True)
-        
-        # 将动作转换为泄洪建议
-        recommendations = {
-            'discharge_adjustments': action.tolist(),  # 5 个闸门的调整量
-            'base_discharge': 1500.0,  # 基础泄洪流量
-            'recommended_discharge': (1500.0 + action * 500).tolist(),
-            'scour_depth_estimate': (0.5 + np.mean(action) * 0.5),  # 冲刷深度估算
-            'risk_probability': float(np.random.random() * 0.3),  # 风险概率
+
+        return {
+            'available': False,
+            'reason': '当前仓库不包含已训练的 RL 泄洪控制器，未生成决策建议。',
         }
-        
-        return recommendations
     
     def get_system_status(self) -> Dict:
         """获取系统整体状态"""
         
         status = {
             'timestamp': datetime.now().isoformat(),
-            'system_version': 'v2.0.0-Alpha',
-            'model_version': 'v2.0.0-Evolved',
-            'api_status': '🟢 已连接',
+            'system_version': 'v3.0.0',
+            'model_version': 'v3.0.0',
+            'api_status': '🟡 本地/模拟数据',
             'active_stations': 5,
+            'model_ready': self.model_ready,
             'stations': self.data_adapter.get_station_status(),
             'latest_predictions': {},
             'rl_recommendations': {},
@@ -317,134 +353,23 @@ class SmartFloodSystem:
             batch_size: 批大小
             train_baseline: 是否同时训练 baseline 模型
         """
-        
-        logger.info(f"开始训练: {epochs} 轮, 批大小 {batch_size}")
-        
-        # 加载训练数据
-        try:
-            df = pd.read_csv(data_path)
-            logger.info(f"加载数据: {len(df)} 条记录")
-        except Exception as e:
-            logger.error(f"数据加载失败: {e}")
-            return
-        
-        # ======== 训练 PINN 主模型 ========
-        self.gnn_model.train()
-        
-        for epoch in range(epochs):
-            # 设置课程学习轮数
-            self.physics_loss.set_epoch(epoch)
-            
-            # 获取批次数据
-            batch_indices = np.random.choice(len(df), batch_size, replace=True)
-            
-            # 生成模拟数据
-            batch_data = np.random.randn(batch_size, 24, 5, 6)
-            batch_targets = np.random.randn(batch_size, 6, 5, 6)
-            
-            batch_data_tensor = torch.from_numpy(batch_data).float().to(self.device)
-            batch_targets_tensor = torch.from_numpy(batch_targets).float().to(self.device)
-            
-            # PINN 前向传播
-            predictions = self.gnn_model(batch_data_tensor)
-            
-            # 应用边界条件强制
-            if epoch % 5 == 0:  # 每5轮应用一次硬边界条件
-                # 上游流量边界 ~1500-2000 m³/s
-                upstream_Q = torch.tensor(1500.0 + np.random.rand() * 500)
-                predictions = self.boundary_enforcer.apply_upstream_flow(
-                    predictions, upstream_Q
-                )
-                # 下游水位边界 ~1000-1100 m
-                downstream_h = torch.tensor(1000.0 + np.random.rand() * 100)
-                predictions = self.boundary_enforcer.apply_downstream_level(
-                    predictions, downstream_h
-                )
-            
-            # 数据驱动损失
-            data_loss = F.mse_loss(predictions, batch_targets_tensor)
-            
-            # 物理约束损失 (传递模型用于NTK权重计算)
-            total_loss, loss_dict = self.physics_loss(
-                predictions, 
-                batch_targets_tensor, 
-                data_loss,
-                model=self.gnn_model  # NTK自适应权重需要模型
+
+        # 统一走已修正的公平对比训练入口，避免旧集成代码
+        # 读取 CSV 后却用随机张量训练。
+        from scripts.train_both_models import main as train_both_models
+
+        if data_path and Path(data_path).exists():
+            logger.warning(
+                "当前对比训练器使用物理合成数据；未将 %s 冒充为训练输入",
+                data_path,
             )
-            
-            # 反向传播
-            self.optimizer.zero_grad()
-            total_loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.gnn_model.parameters(), 1.0)
-            self.optimizer.step()
-            
-            if (epoch + 1) % 10 == 0:
-                logger.info(f"PINN Epoch {epoch + 1}/{epochs}")
-                for key, value in loss_dict.items():
-                    logger.info(f"  {key}: {value:.6f}")
-        
-        logger.info("PINN 主模型训练完成")
-        
-        # ======== 训练 Baseline 模型 ========
-        if train_baseline:
-            logger.info("开始训练 Baseline 对比模型...")
-            self.baseline_model.train()
-            baseline_optimizer = torch.optim.Adam(
-                self.baseline_model.parameters(), 
-                lr=0.0005
-            )
-            
-            for epoch in range(epochs):
-                batch_indices = np.random.choice(len(df), batch_size, replace=True)
-                batch_data = np.random.randn(batch_size, 24, 5, 6)
-                batch_targets = np.random.randn(batch_size, 6, 5, 6)
-                
-                batch_data_tensor = torch.from_numpy(batch_data).float().to(self.device)
-                batch_targets_tensor = torch.from_numpy(batch_targets).float().to(self.device)
-                
-                # Baseline 前向传播
-                baseline_predictions = self.baseline_model(batch_data_tensor)
-                
-                # 纯数据驱动损失
-                baseline_loss = F.mse_loss(baseline_predictions, batch_targets_tensor)
-                
-                # 反向传播
-                baseline_optimizer.zero_grad()
-                baseline_loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.baseline_model.parameters(), 1.0)
-                baseline_optimizer.step()
-                
-                if (epoch + 1) % 10 == 0:
-                    logger.info(f"Baseline Epoch {epoch + 1}/{epochs}: Loss={baseline_loss:.6f}")
-            
-            logger.info("Baseline 模型训练完成")
-            
-            # ======== 对比验证 ========
-            logger.info("进行多模型对比验证...")
-            with torch.no_grad():
-                self.gnn_model.eval()
-                self.baseline_model.eval()
-                
-                # 生成验证数据
-                test_data = np.random.randn(32, 24, 5, 6)
-                test_targets = np.random.randn(32, 6, 5, 6)
-                
-                test_data_tensor = torch.from_numpy(test_data).float().to(self.device)
-                test_targets_tensor = torch.from_numpy(test_targets).float().to(self.device)
-                
-                # 获取两个模型的预测
-                pinn_preds = self.gnn_model(test_data_tensor)
-                baseline_preds = self.baseline_model(test_data_tensor)
-                
-                # 计算对比指标
-                pinn_mse = F.mse_loss(pinn_preds, test_targets_tensor).item()
-                baseline_mse = F.mse_loss(baseline_preds, test_targets_tensor).item()
-                
-                improvement = (1 - pinn_mse / (baseline_mse + 1e-6)) * 100
-                
-                logger.info(f"PINN MSE: {pinn_mse:.6f}")
-                logger.info(f"Baseline MSE: {baseline_mse:.6f}")
-                logger.info(f"PINN 改进: {improvement:.2f}%")
+        if not train_baseline:
+            logger.warning("公平对比协议要求同时训练 Baseline，已忽略 train_baseline=False")
+        if batch_size != 32:
+            logger.warning("当前统一训练器使用内置批大小，已忽略 batch_size=%s", batch_size)
+
+        train_both_models(epochs=epochs)
+        self._load_experiment_checkpoints()
     
     def save_models(self, save_dir: str = "models/autopilot/"):
         """保存模型（包括 Baseline）"""
@@ -455,9 +380,6 @@ class SmartFloodSystem:
         
         # 保存 Baseline 模型
         torch.save(self.baseline_model.state_dict(), f"{save_dir}/baseline_model.pt")
-        
-        # 保存 RL 智能体
-        self.rl_agent.save(f"{save_dir}/ppo_agent.pt")
         
         logger.info(f"所有模型已保存到 {save_dir}")
     
@@ -470,7 +392,6 @@ class SmartFloodSystem:
             self.baseline_model.load_state_dict(
                 torch.load(f"{load_dir}/baseline_model.pt", map_location=self.device)
             )
-            self.rl_agent.load(f"{load_dir}/ppo_agent.pt")
             logger.info(f"所有模型已从 {load_dir} 加载")
         except Exception as e:
             logger.warning(f"模型加载失败: {e}，使用新模型")
@@ -483,7 +404,7 @@ def main():
     parser.add_argument('--mode', default='full', 
                        choices=['full', 'train', 'inference', 'dashboard'],
                        help='运行模式')
-    parser.add_argument('--config', default='smart_flood_system/configs/system_config.yaml',
+    parser.add_argument('--config', default='configs/system_config.yaml',
                        help='配置文件路径')
     parser.add_argument('--test-data', default='data/test.csv',
                        help='测试数据路径')
@@ -537,7 +458,7 @@ def main():
     
     elif args.mode == 'dashboard':
         print(f"启动仪表板: http://localhost:{args.dashboard_port}")
-        print("运行命令: streamlit run smart_flood_system/app/dashboard_v2.py")
+        print("运行命令: streamlit run src/core/dashboard_v2.py")
 
 
 if __name__ == '__main__':

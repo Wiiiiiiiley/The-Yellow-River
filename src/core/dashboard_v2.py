@@ -16,8 +16,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from smart_flood_system.data_adapter import get_data_adapter
-from smart_flood_system.main_system import SmartFloodSystem
+from src.data.data_adapter import get_data_adapter
+from src.core.main_system import SmartFloodSystem
 
 # 页面配置
 st.set_page_config(
@@ -293,48 +293,56 @@ def main():
             st.subheader("💧 泄洪建议")
             current_state = np.random.randn(19)
             recommendations = system.get_rl_recommendations(current_state)
-            
-            st.metric("建议泄洪流量", 
-                     f"{recommendations['recommended_discharge'][0]:.0f} m³/s")
-            
-            st.write("**各闸门调整:**")
-            for i, adj in enumerate(recommendations['discharge_adjustments']):
-                st.write(f"  闸门 {i+1}: {adj:+.1f} m³/s")
+
+            if not recommendations.get('available', True):
+                st.warning(recommendations['reason'])
+            else:
+                st.metric("建议泄洪流量",
+                          f"{recommendations['recommended_discharge'][0]:.0f} m³/s")
+                st.write("**各闸门调整:**")
+                for i, adj in enumerate(recommendations['discharge_adjustments']):
+                    st.write(f"  闸门 {i+1}: {adj:+.1f} m³/s")
         
         with col2:
             st.subheader("📏 冲刷深度")
-            st.metric("估算冲刷深度", 
-                     f"{recommendations['scour_depth_estimate']:.2f} m")
-            st.info("这是对河床可能冲刷深度的估算")
+            if recommendations.get('available', True):
+                st.metric("估算冲刷深度",
+                          f"{recommendations['scour_depth_estimate']:.2f} m")
+                st.info("这是对河床可能冲刷深度的估算")
+            else:
+                st.caption("暂无可用结果")
         
         with col3:
             st.subheader("📊 风险概率")
-            risk_prob = recommendations['risk_probability'] * 100
-            st.metric("突发风险概率", f"{risk_prob:.1f}%")
+            if not recommendations.get('available', True):
+                st.caption("暂无可用结果")
+            else:
+                risk_prob = recommendations['risk_probability'] * 100
+                st.metric("突发风险概率", f"{risk_prob:.1f}%")
             
-            # 风险仪表盘
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=risk_prob,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "风险概率"},
-                gauge={
-                    'axis': {'range': [None, 100]},
-                    'bar': {'color': "darkblue"},
-                    'steps': [
-                        {'range': [0, 30], 'color': "lightgray"},
-                        {'range': [30, 70], 'color': "lightblue"},
-                        {'range': [70, 100], 'color': "lightcoral"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 80
+                # 风险仪表盘
+                fig = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=risk_prob,
+                    domain={'x': [0, 1], 'y': [0, 1]},
+                    title={'text': "风险概率"},
+                    gauge={
+                        'axis': {'range': [None, 100]},
+                        'bar': {'color': "darkblue"},
+                        'steps': [
+                            {'range': [0, 30], 'color': "lightgray"},
+                            {'range': [30, 70], 'color': "lightblue"},
+                            {'range': [70, 100], 'color': "lightcoral"}
+                        ],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 4},
+                            'thickness': 0.75,
+                            'value': 80
+                        }
                     }
-                }
-            ))
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
+                ))
+                fig.update_layout(height=300)
+                st.plotly_chart(fig, use_container_width=True)
         
         st.divider()
         

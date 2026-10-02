@@ -99,15 +99,29 @@ def main():
     
     # 加载模型
     print("\n[1] 加载训练好的模型...")
-    checkpoint = torch.load('experiments/models/best_model.pth', map_location=device)
-    model_config = checkpoint['config']
+    checkpoint_path = Path('experiments/models/pinn_best.pth')
+    if not checkpoint_path.exists():
+        checkpoint_path = Path('experiments/models/best_model.pth')
+    if not checkpoint_path.exists():
+        raise FileNotFoundError("未找到 PINN 检查点，请先运行训练脚本")
+
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    if checkpoint.get('protocol_version', 1) < 2:
+        raise RuntimeError("检查点使用旧评估协议，请先重新训练模型")
+    model_config = checkpoint.get('config', checkpoint.get('model_config'))
+    if model_config is None:
+        raise KeyError(f"检查点 {checkpoint_path} 缺少模型配置")
     
     model = create_enhanced_model(model_config).to(device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     
-    mean = checkpoint['mean']
-    std = checkpoint['std']
+    mean = checkpoint.get('mean', checkpoint.get('data_mean'))
+    std = checkpoint.get('std', checkpoint.get('data_std'))
+    if mean is None or std is None:
+        raise KeyError(f"检查点 {checkpoint_path} 缺少训练集 mean/std")
+    mean = mean.squeeze().view(1, 1, 1, -1)
+    std = std.squeeze().view(1, 1, 1, -1)
     
     print("    模型加载成功!")
     

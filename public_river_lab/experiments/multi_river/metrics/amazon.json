@@ -1,0 +1,109 @@
+{
+  "metrics": {
+    "physics_guided": {
+      "water_depth": {
+        "mae": 0.05173821969685543,
+        "rmse": 0.08562449389209734,
+        "nse": 0.9825130283282473,
+        "bias": 0.002610299982485034,
+        "nrmse": 0.02770625734669312
+      },
+      "discharge": {
+        "mae": 370.00523593518164,
+        "rmse": 607.0872250274431,
+        "nse": 0.9936104550962197,
+        "bias": 1.0057276680372458,
+        "nrmse": 0.018896990452309612
+      },
+      "sediment": {
+        "mae": 0.0004985263477084581,
+        "rmse": 0.0007592684865668534,
+        "nse": 0.9902795877447146,
+        "bias": 1.235059892311531e-05,
+        "nrmse": 0.022855020547638338
+      }
+    },
+    "data_only": {
+      "water_depth": {
+        "mae": 0.051732883547711876,
+        "rmse": 0.08562545823879024,
+        "nse": 0.9825126344316532,
+        "bias": 0.0025736301847282318,
+        "nrmse": 0.0277065693886852
+      },
+      "discharge": {
+        "mae": 369.9568405837867,
+        "rmse": 607.0723699978597,
+        "nse": 0.9936107677884108,
+        "bias": 0.8366803152384639,
+        "nrmse": 0.018896528055242712
+      },
+      "sediment": {
+        "mae": 0.0004984899677965385,
+        "rmse": 0.0007592710403531264,
+        "nse": 0.9902795223557315,
+        "bias": 1.2021595968926555e-05,
+        "nrmse": 0.022855097420100157
+      }
+    },
+    "persistence": {
+      "water_depth": {
+        "mae": 0.05279741051756306,
+        "rmse": 0.0861686264526357,
+        "nse": 0.9822900672509498,
+        "bias": 0.0053344808978798945,
+        "nrmse": 0.027882327021008388
+      },
+      "discharge": {
+        "mae": 381.4182098765432,
+        "rmse": 611.6307144772918,
+        "nse": 0.993514457476151,
+        "bias": 37.51472800925926,
+        "nrmse": 0.019038417043439216
+      },
+      "sediment": {
+        "mae": 0.0005098621786376576,
+        "rmse": 0.0007678659706508717,
+        "nse": 0.9900582055995018,
+        "bias": 6.167817814850513e-05,
+        "nrmse": 0.023113816584711754
+      }
+    }
+  },
+  "protocol": {
+    "version": 3,
+    "data_status": "synthetic",
+    "seed": 42,
+    "epochs": 25,
+    "hours": 8760,
+    "history_hours": 24,
+    "horizon_hours": 6,
+    "split": "70/15/15 chronological",
+    "stride_hours": 24,
+    "normalization": "training period only; all methods use the same scaler",
+    "start": "2024-01-01T00:00:00Z",
+    "end": "2024-12-30T23:00:00Z",
+    "train_end_exclusive": 6132,
+    "val_end_exclusive": 7446,
+    "split_counts": {
+      "train": 255,
+      "val": 55,
+      "test": 54
+    },
+    "physics_weight": 0.05,
+    "architecture": {
+      "n_nodes": 5,
+      "n_features": 6,
+      "hidden_size": 32,
+      "horizon": 6
+    },
+    "checkpoint_selection": "minimum validation normalized MSE",
+    "parameter_status": "illustrative_uncalibrated",
+    "torch_version": "2.11.0"
+  },
+  "interval_coverage": {
+    "water_depth": 0.9339506172839506,
+    "discharge": 0.9493827160493827,
+    "sediment": 0.9635802469135802
+  }
+}

@@ -332,44 +332,34 @@ class EnhancedPhysicsConstraintLoss(nn.Module):
         if not self.use_ntk:
             return 0.5, 0.5
         
-        # 计算数据损失的梯度
-        data_grad_norm = 0.0
-        for param in model.parameters():
-            if param.requires_grad and param.grad is not None:
-                # 重新计算梯度 (需要 retain_graph=True)
-                grad = torch.autograd.grad(
-                    data_loss, param, 
-                    retain_graph=True, 
-                    create_graph=False,
-                    allow_unused=True
-                )[0]
-                if grad is not None:
-                    data_grad_norm += torch.norm(grad).item()
-        
-        # 计算物理损失的梯度
-        physics_grad_norm = 0.0
-        for param in model.parameters():
-            if param.requires_grad and param.grad is not None:
-                grad = torch.autograd.grad(
-                    physics_loss, param,
-                    retain_graph=True,
-                    create_graph=False,
-                    allow_unused=True
-                )[0]
-                if grad is not None:
-                    physics_grad_norm += torch.norm(grad).item()
-        
-        # 平衡权重
+        parameters = [param for param in model.parameters() if param.requires_grad]
+
+        def gradient_norm(loss: torch.Tensor) -> float:
+            gradients = torch.autograd.grad(
+                loss,
+                parameters,
+                retain_graph=True,
+                create_graph=False,
+                allow_unused=True,
+            )
+            norm_squared = torch.zeros((), device=loss.device)
+            for gradient in gradients:
+                if gradient is not None:
+                    norm_squared = norm_squared + gradient.detach().pow(2).sum()
+            return torch.sqrt(norm_squared).item()
+
+        # optimizer.zero_grad() 会将 param.grad 设为 None，因此必须直接
+        # 从两个损失计算梯度，不能依赖预先存在的 param.grad。
+        data_grad_norm = gradient_norm(data_loss)
+        physics_grad_norm = gradient_norm(physics_loss)
+
         if physics_grad_norm > 1e-8 and data_grad_norm > 1e-8:
-            # 使物理损失的梯度贡献与数据损失相当
-            lambda_data = 0.5
-            lambda_physics = 0.5 * data_grad_norm / physics_grad_norm
-            
-            # 归一化
-            total = lambda_data + lambda_physics
-            lambda_data /= total
-            lambda_physics /= total
-            
+            total_norm = data_grad_norm + physics_grad_norm
+            lambda_data = physics_grad_norm / total_norm
+            lambda_physics = data_grad_norm / total_norm
+            # 防止单一损失在一个 batch 内完全主导训练。
+            lambda_physics = min(max(lambda_physics, 0.05), 0.95)
+            lambda_data = 1.0 - lambda_physics
             return lambda_data, lambda_physics
         
         return 0.5, 0.5
@@ -456,13 +446,14 @@ class EnhancedPhysicsConstraintLoss(nn.Module):
             dt: 时间步长
             dx: 空间步长
         """
-        # 提取水文变量
-        h = predictions[:, :, :, 0]  # 水位
+        # 输入必须是已恢复量纲的物理量。数据集给出的是水位高程，
+        # Saint-Venant 方程需要水深，因此用典型水位和典型水深转换。
+        water_level = predictions[:, :, :, 0]
+        h = torch.clamp(water_level - self.z_ref + self.h_ref, min=0.1)
         Q = predictions[:, :, :, 1]  # 流量
         
         # 计算流速 u = Q / (h * B)
-        h_clamp = torch.clamp(h, min=0.1)
-        u = Q / (h_clamp * self.B)
+        u = Q / (h * self.B)
         
         # 计算物理损失
         continuity_loss = self.compute_continuity_loss_enhanced(h, u, Q, dt, dx)
@@ -483,6 +474,10 @@ class EnhancedPhysicsConstraintLoss(nn.Module):
         # 计算权重
         if model is not None and self.use_ntk:
             data_weight, physics_weight = self.compute_ntk_weights(model, data_loss, physics_loss)
+            if self.use_curriculum:
+                # 课程学习限制早期物理项的最大权重。
+                physics_weight = min(physics_weight, self.get_curriculum_weight())
+                data_weight = 1.0 - physics_weight
         else:
             physics_weight = self.get_curriculum_weight()
             data_weight = 1.0 - physics_weight

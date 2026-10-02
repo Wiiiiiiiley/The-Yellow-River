@@ -144,7 +144,6 @@ class CSVSource(DataSource):
     
     def __init__(self, csv_dir: str = "data/archive/"):
         self.csv_dir = Path(csv_dir)
-        self.csv_dir.mkdir(parents=True, exist_ok=True)
     
     def get_readings(self, station_id: str, hours: int = 24) -> pd.DataFrame:
         """从 CSV 获取读数"""
@@ -198,13 +197,17 @@ class SimulatedSource(DataSource):
         discharge = base_discharge + np.random.normal(0, 50, hours)
         
         # 泥沙滞后于流量峰值
-        sediment_lag = 6  # 6 小时滞后
+        sediment_lag = min(6, max(hours - 1, 0))  # 最多 6 小时滞后
         base_sediment = 50 + 30 * np.sin(np.arange(hours) * 2 * np.pi / 168)
-        # 创建滞后效果：前 sediment_lag 小时为 0，后面为滞后的基础沙量
-        sediment_concentration = np.concatenate([
-            np.zeros(sediment_lag),
-            base_sediment[:-sediment_lag]
-        ]) + np.random.normal(0, 5, hours)
+        if sediment_lag:
+            # 创建滞后效果：前 sediment_lag 小时为 0，后面为滞后的基础沙量
+            lagged_sediment = np.concatenate([
+                np.zeros(sediment_lag),
+                base_sediment[:-sediment_lag],
+            ])
+        else:
+            lagged_sediment = base_sediment
+        sediment_concentration = lagged_sediment + np.random.normal(0, 5, hours)
         
         df = pd.DataFrame({
             'timestamp': timestamps,
@@ -245,7 +248,7 @@ class DataAdapter:
         'sediment_concentration_warning': 100,  # kg/m³
     }
     
-    def __init__(self, db_path: str = "data/autopilot.db", 
+    def __init__(self, db_path: str = "data/processed/autopilot.db",
                  csv_dir: str = "data/archive/",
                  use_simulated: bool = True):
         self.sources: List[DataSource] = []
@@ -358,7 +361,7 @@ class DataAdapter:
         for feat in features:
             if feat not in df.columns:
                 df[feat] = 0
-            df[feat].fillna(df[feat].mean(), inplace=True)
+            df[feat] = df[feat].fillna(df[feat].mean())
         
         # 标准化
         features_array = df[features].values.astype(np.float32)

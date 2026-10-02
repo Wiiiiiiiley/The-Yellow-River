@@ -135,39 +135,36 @@ def main():
     
     # 加载归一化参数（用于反归一化）
     print("\n[1.5] 加载归一化参数...")
-    checkpoint_path = Path("experiments/models/best_model.pth")
+    checkpoint_path = Path("experiments/models/pinn_best.pth")
     if not checkpoint_path.exists():
-        checkpoint_path = Path("experiments/models/pinn_best.pth")
+        checkpoint_path = Path("experiments/models/best_model.pth")
     
     if checkpoint_path.exists():
         checkpoint = torch.load(checkpoint_path, map_location=device)
-        data_mean = checkpoint.get('mean', None)
-        data_std = checkpoint.get('std', None)
+        if checkpoint.get('protocol_version', 1) < 2:
+            raise RuntimeError("检查点使用旧评估协议，请先重新训练模型")
+        model.load_state_dict(checkpoint['model_state_dict'])
+        data_mean = checkpoint.get('mean', checkpoint.get('data_mean'))
+        data_std = checkpoint.get('std', checkpoint.get('data_std'))
         if data_mean is not None and data_std is not None:
-            print(f"    已加载 mean/std 用于反归一化")
+            data_mean = data_mean.squeeze()
+            data_std = data_std.squeeze()
+            print(f"    已加载模型权重和 mean/std")
         else:
-            print("    ⚠️ 检查点中没有 mean/std，将使用测试数据计算")
-            data_mean = None
-            data_std = None
+            raise KeyError(f"检查点 {checkpoint_path} 缺少训练集 mean/std")
     else:
-        print("    ⚠️ 未找到模型检查点，将使用测试数据计算 mean/std")
-        data_mean = None
-        data_std = None
+        raise FileNotFoundError("未找到 PINN 检查点，请先运行训练脚本")
     
     # 生成测试数据
     print("\n[2] 生成测试数据 (50个样本, 模拟洪水场景)...")
     test_data, test_targets, timestamps = generate_test_data(n_samples=50)
     
     # 归一化输入数据（与训练时一致）
-    if data_mean is not None and data_std is not None:
-        print("    对输入数据进行归一化...")
-        mean_reshaped = data_mean.view(1, 1, 1, -1)
-        std_reshaped = data_std.view(1, 1, 1, -1)
-        test_data_norm = (test_data - mean_reshaped) / std_reshaped
-        test_targets_norm = (test_targets - mean_reshaped) / std_reshaped
-    else:
-        test_data_norm = test_data
-        test_targets_norm = test_targets
+    print("    对输入数据进行归一化...")
+    mean_reshaped = data_mean.view(1, 1, 1, -1)
+    std_reshaped = data_std.view(1, 1, 1, -1)
+    test_data_norm = (test_data - mean_reshaped) / std_reshaped
+    test_targets_norm = (test_targets - mean_reshaped) / std_reshaped
     
     test_data_norm = test_data_norm.to(device)
     test_targets_norm = test_targets_norm.to(device)
@@ -184,11 +181,6 @@ def main():
     
     # 反归一化（如果知道 mean/std）
     print("\n[3.5] 反归一化预测值...")
-    if data_mean is None or data_std is None:
-        # 使用测试数据计算统计量
-        data_mean = test_data.mean(dim=(0, 1, 2))
-        data_std = test_data.std(dim=(0, 1, 2)) + 1e-8
-    
     # 扩展到预测维度 (batch, time, nodes, features)
     mean_expanded = data_mean.view(1, 1, 1, -1).to(device)
     std_expanded = data_std.view(1, 1, 1, -1).to(device)

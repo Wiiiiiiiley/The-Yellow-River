@@ -1,0 +1,427 @@
+{
+  "artifact_root": "experiments/multi_river",
+  "data_status": "synthetic",
+  "excludes": "原项目数据库、虚拟环境、密钥与完整原始输入档案",
+  "files": {
+    ".nojekyll": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "configs/river_sources.json": {
+      "bytes": 6221,
+      "sha256": "b52ddad729020abbfcd37569c004fd1fff27e4a7c2f97285a1c1eb29f5b570a7"
+    },
+    "configs/rivers.json": {
+      "bytes": 5346,
+      "sha256": "d3e6b0e7e15c5094bda025a1e6c844b9dbde8e2f3ce0993ae00da3b37680b5ab"
+    },
+    "docs/multi_river_results.md": {
+      "bytes": 2717,
+      "sha256": "79744648750e403499e6808fd59b80c261a09eabd1111aab28ff01a7b537c829"
+    },
+    "docs/multi_river_study.md": {
+      "bytes": 14082,
+      "sha256": "246dbc6dec354229171b0a9ec6b08b053ea9e319b73c50fe7ce4cfb7e671e25b"
+    },
+    "docs/publishing_guide.md": {
+      "bytes": 4333,
+      "sha256": "7ce11b3e86c021d511dae7fb1897c49f504fbcb6710bde6d5822da83ec8e65d3"
+    },
+    "docs/yellow_mississippi_comparison.md": {
+      "bytes": 8655,
+      "sha256": "22f85f74a834f78d1343b5d0fb2170ed548377e94e2e2bd32e2883eaba743cce"
+    },
+    "experiments/multi_river/metrics/amazon.json": {
+      "bytes": 2995,
+      "sha256": "88ff1b48a27c0c5bc982b379ff9edb15f83e67f46cf1f8ef24533b0d918161b1"
+    },
+    "experiments/multi_river/metrics/danube.json": {
+      "bytes": 3005,
+      "sha256": "44dba7c3615754e72104300bc8e6098908fb8b80552f053a3c0623e39380d56e"
+    },
+    "experiments/multi_river/metrics/mississippi.json": {
+      "bytes": 3000,
+      "sha256": "1ccfedd08452dfaa9f32eacd535d778303175309986b0c62279a499a434ad0b8"
+    },
+    "experiments/multi_river/metrics/nile.json": {
+      "bytes": 3012,
+      "sha256": "8ba94322a08472082cd4c21b030f000928de4cb3e2766321b016b8b6b9ba25c3"
+    },
+    "experiments/multi_river/metrics/yangtze.json": {
+      "bytes": 2997,
+      "sha256": "12a6274f5cd77476c363be68393ff8b4b6229a087ab0d273c05790202ce40bd4"
+    },
+    "experiments/multi_river/metrics/yellow_river.json": {
+      "bytes": 2993,
+      "sha256": "20c47e56ebac4f4495aceb7e4498694f3e6af1646258618fc2d15fb59405f586"
+    },
+    "experiments/multi_river/models/amazon_data_only.pt": {
+      "bytes": 26630,
+      "sha256": "b03354ee3e039c5c4e43b8d3670d9e837976ada644e3d7de21285fa53558e543"
+    },
+    "experiments/multi_river/models/amazon_data_only_history.json": {
+      "bytes": 3033,
+      "sha256": "2857e8125c64723b8e6a0dcf462e054b78f43227b2c637ca818bed8b2c482f03"
+    },
+    "experiments/multi_river/models/amazon_physics_guided.pt": {
+      "bytes": 26695,
+      "sha256": "349d2cc44f1ac2790ceaa2414a2cb5b7a36b7785fc0bea0b494a680f1815261c"
+    },
+    "experiments/multi_river/models/amazon_physics_guided_history.json": {
+      "bytes": 3034,
+      "sha256": "6c6f5c820188c9e1c5df9461a2a5c5b6d68538de56572b396a71edd9d5154c7b"
+    },
+    "experiments/multi_river/models/danube_data_only.pt": {
+      "bytes": 26630,
+      "sha256": "4983ff525fc23e5b8a65233cec8b9c28234ee6ec9252921650ce8301145cc156"
+    },
+    "experiments/multi_river/models/danube_data_only_history.json": {
+      "bytes": 3016,
+      "sha256": "38a3a564928de88b461835cf1a91409a11bb76b2f2118763ff13bc099929dfaa"
+    },
+    "experiments/multi_river/models/danube_physics_guided.pt": {
+      "bytes": 26695,
+      "sha256": "c87f091c49154c21b8ade502688b03aab503db8dc365006260e52045f12377d9"
+    },
+    "experiments/multi_river/models/danube_physics_guided_history.json": {
+      "bytes": 3025,
+      "sha256": "612fd5c77bff11c16a470bc73fe8fca5e0e60f0d794d561e1d23f5f539c28893"
+    },
+    "experiments/multi_river/models/mississippi_data_only.pt": {
+      "bytes": 26695,
+      "sha256": "2ed7b124c5f2894f88b25bdeb5cd999430b2876a9f36348655de3f4ef85aa46d"
+    },
+    "experiments/multi_river/models/mississippi_data_only_history.json": {
+      "bytes": 3029,
+      "sha256": "06b25c212e297536ee706fa9273bffedfb83b9f64c87b922791f99bc92919af3"
+    },
+    "experiments/multi_river/models/mississippi_physics_guided.pt": {
+      "bytes": 26888,
+      "sha256": "ea9c3ca72275912997fe1fb22127c26fb694a72424870d00a71f2ff8325b2d17"
+    },
+    "experiments/multi_river/models/mississippi_physics_guided_history.json": {
+      "bytes": 3037,
+      "sha256": "6705da906b6446b9ce35806a455ba4660557904034d5d264ce3c28c8b8c7e072"
+    },
+    "experiments/multi_river/models/nile_data_only.pt": {
+      "bytes": 26604,
+      "sha256": "da9c945c42170b772fbf6958a2e37573904e23b8b4c8510c7903f73494d36df5"
+    },
+    "experiments/multi_river/models/nile_data_only_history.json": {
+      "bytes": 3029,
+      "sha256": "a8c708e696bc31202f684f0e8e123f7096e6037063e4d0285baecf97e61a2bf3"
+    },
+    "experiments/multi_river/models/nile_physics_guided.pt": {
+      "bytes": 26669,
+      "sha256": "0934ed18d1e3b71f9e817252ffd02adcf924a8e6e5313da41d3c2f6cd0e5854d"
+    },
+    "experiments/multi_river/models/nile_physics_guided_history.json": {
+      "bytes": 3029,
+      "sha256": "8ac2b715a104fdfa24397630afd2fd6b2e661a656e0715097efa96579dd7c616"
+    },
+    "experiments/multi_river/models/yangtze_data_only.pt": {
+      "bytes": 26579,
+      "sha256": "75d3c4fc2514c191973856bca5ec1384ea043c9fa20fa190e0616fbd1b12e8dd"
+    },
+    "experiments/multi_river/models/yangtze_data_only_history.json": {
+      "bytes": 3035,
+      "sha256": "90629ae8571f9ac9d94a26a4dd86eaf5e49646c41ccf0c218005f1b7d3c5372b"
+    },
+    "experiments/multi_river/models/yangtze_physics_guided.pt": {
+      "bytes": 26708,
+      "sha256": "623336158e79560e8977917ef36588d640d9c77dab4308958cdc261db96b4f0a"
+    },
+    "experiments/multi_river/models/yangtze_physics_guided_history.json": {
+      "bytes": 3035,
+      "sha256": "af1c5feb90154d2724c420bf2a9a8a2ac7860d503cf95eef42b0743697628a7c"
+    },
+    "experiments/multi_river/models/yellow_river_data_only.pt": {
+      "bytes": 26708,
+      "sha256": "8da7232b75fbe697bedae321c8a01a16aaba76c511bd2a8cf3cc09a98f4062ed"
+    },
+    "experiments/multi_river/models/yellow_river_data_only_history.json": {
+      "bytes": 3035,
+      "sha256": "d84c4e75d51f45ebb04ee9d001946c62f26abd5ed6200c0277b7d24a5e76b218"
+    },
+    "experiments/multi_river/models/yellow_river_physics_guided.pt": {
+      "bytes": 26837,
+      "sha256": "f18ea961f9fb32ab172d05358e1638eb0be989e035e91aa60a484e7397b811ff"
+    },
+    "experiments/multi_river/models/yellow_river_physics_guided_history.json": {
+      "bytes": 3036,
+      "sha256": "ac51c9240e5a077f09faf62333c36443f151a2940d8a499d17399eeb58807823"
+    },
+    "experiments/multi_river/predictions/amazon_data_only_backtest.csv": {
+      "bytes": 592026,
+      "sha256": "6fbcfd6dd046cb37b0dd6337e0fae6e949a491d2e719b39ee97c14c9fecbaf37"
+    },
+    "experiments/multi_river/predictions/amazon_data_only_forecast.csv": {
+      "bytes": 10040,
+      "sha256": "a8a399ee8ebd578fa33316d57f9d2890a796413cf29fd50476c925b45f770bc2"
+    },
+    "experiments/multi_river/predictions/amazon_persistence_backtest.csv": {
+      "bytes": 593729,
+      "sha256": "e36a41e75a7280e745c156eadaf33f6e9ad901b949717c730c943cf89a95daf0"
+    },
+    "experiments/multi_river/predictions/amazon_persistence_forecast.csv": {
+      "bytes": 10077,
+      "sha256": "ea35987f90e50b3ee74b9fd670b2d21ca1feef6cdde64dc02a147928393ef14b"
+    },
+    "experiments/multi_river/predictions/amazon_physics_guided_backtest.csv": {
+      "bytes": 616361,
+      "sha256": "08d1775103de6c3649a034d779383cdc3422aef9e7733cb23d86cb137bdc4b2f"
+    },
+    "experiments/multi_river/predictions/amazon_physics_guided_forecast.csv": {
+      "bytes": 13736,
+      "sha256": "237cc5008ee4204fd4c1fd2783016e33543126ddd57085e7786635a476084245"
+    },
+    "experiments/multi_river/predictions/danube_data_only_backtest.csv": {
+      "bytes": 594919,
+      "sha256": "89b5beb7787c7a40e6c4a37dad83468471808afd22e2ca432e560223c0dd1cc6"
+    },
+    "experiments/multi_river/predictions/danube_data_only_forecast.csv": {
+      "bytes": 10013,
+      "sha256": "32271b21e73712a38cd6dfa1968717cca2f677782b5feb822844e332a75afe7d"
+    },
+    "experiments/multi_river/predictions/danube_persistence_backtest.csv": {
+      "bytes": 601997,
+      "sha256": "1c16c4abca9a0cb3397092f0c02fd18e727616b286cad0d0ecf8fe3d5da5df72"
+    },
+    "experiments/multi_river/predictions/danube_persistence_forecast.csv": {
+      "bytes": 10131,
+      "sha256": "f0e0d6db9f8d3bef9e69fe7e71afcc5d995c2d7abc6131c0790840a4ad6eed99"
+    },
+    "experiments/multi_river/predictions/danube_physics_guided_backtest.csv": {
+      "bytes": 619254,
+      "sha256": "81f2db8746ca99ac3ca701ba55b082e50311679febc9e6e25130143a6ba2cd2a"
+    },
+    "experiments/multi_river/predictions/danube_physics_guided_forecast.csv": {
+      "bytes": 13643,
+      "sha256": "2cb04d02e2b5c006b3569a4e8a021c404ad8835e5342e0fa89d548eed5a101b7"
+    },
+    "experiments/multi_river/predictions/mississippi_data_only_backtest.csv": {
+      "bytes": 592998,
+      "sha256": "e7b6ccae353b8fe94f843afe79085e6fe42d25eacdc35b35e009f80938d26f45"
+    },
+    "experiments/multi_river/predictions/mississippi_data_only_forecast.csv": {
+      "bytes": 10045,
+      "sha256": "2cbfc19317ddc4a0d8342ddf7b45e7f9f4b045476ca6a48b240428b61fad92ba"
+    },
+    "experiments/multi_river/predictions/mississippi_persistence_backtest.csv": {
+      "bytes": 598330,
+      "sha256": "810a1bcec2eecc17db9565fbaf4eb5f7a28b4ea9c09459672ee22908562b4cd0"
+    },
+    "experiments/multi_river/predictions/mississippi_persistence_forecast.csv": {
+      "bytes": 10149,
+      "sha256": "ee66b2b748f3651e34639bfe5014d9a5810a13bc623e3443aa344cef7ff0ac88"
+    },
+    "experiments/multi_river/predictions/mississippi_physics_guided_backtest.csv": {
+      "bytes": 617357,
+      "sha256": "a6cf36754e321242a3eccf4aca6c5890791235862c300e094843bfbc2e54178b"
+    },
+    "experiments/multi_river/predictions/mississippi_physics_guided_forecast.csv": {
+      "bytes": 13752,
+      "sha256": "1edf8636e43dc329929c89dc4514aa18d5de530ff3a4aff8666a16af4a523d87"
+    },
+    "experiments/multi_river/predictions/mississippi_reloaded.csv": {
+      "bytes": 10497,
+      "sha256": "a3724e6a8fd49e9adefe61f04cbd76923a14a300ff8b65d8b7355567bb47265f"
+    },
+    "experiments/multi_river/predictions/mississippi_reloaded.metadata.json": {
+      "bytes": 447,
+      "sha256": "a914547c4a23590dc2b5c7e044c2d926de90a6101e6e4b391facc5269805de05"
+    },
+    "experiments/multi_river/predictions/nile_data_only_backtest.csv": {
+      "bytes": 595021,
+      "sha256": "1c84781ae9ef67933dc2fc20cb40d644e9da3f7f2c2d7c5f16c1baad1b0e6d6a"
+    },
+    "experiments/multi_river/predictions/nile_data_only_forecast.csv": {
+      "bytes": 10021,
+      "sha256": "4228a6c95a4eb7273135e6ecc5a0e3f49e39b0bf4ce9d5fa734ef7bb09b208f6"
+    },
+    "experiments/multi_river/predictions/nile_persistence_backtest.csv": {
+      "bytes": 602211,
+      "sha256": "6a772b9d40e7d5f8df76633ba1a8838c484738dd91a853089c15c9e9b05202ed"
+    },
+    "experiments/multi_river/predictions/nile_persistence_forecast.csv": {
+      "bytes": 10173,
+      "sha256": "d2df7b2c08b8773ad8ebe192a3cfbc3ddd67ac7065c0e8e2724c0781ee88567b"
+    },
+    "experiments/multi_river/predictions/nile_physics_guided_backtest.csv": {
+      "bytes": 619328,
+      "sha256": "25bb591d205fe0ed27fa3a92abff7c2fe2ff56c7b3057a3315bfce0e0572e5f3"
+    },
+    "experiments/multi_river/predictions/nile_physics_guided_forecast.csv": {
+      "bytes": 13675,
+      "sha256": "9932f674f4a0d59bb4b1f50021751f61528057dabc4ffbd234da94f6638d56ba"
+    },
+    "experiments/multi_river/predictions/yangtze_data_only_backtest.csv": {
+      "bytes": 591125,
+      "sha256": "447dc03177d56ad32e8c86074e426633b6bc313179d9d59e636d4835490e1955"
+    },
+    "experiments/multi_river/predictions/yangtze_data_only_forecast.csv": {
+      "bytes": 10013,
+      "sha256": "b418c6a637ee720ac68506fdfdfc90e132d7dba8c1c8f57318bb6aef7f5ff3b0"
+    },
+    "experiments/multi_river/predictions/yangtze_persistence_backtest.csv": {
+      "bytes": 595251,
+      "sha256": "70b9d1187c692ad5009d64af5fd83ff256108f3d50e003970da1f584a5e29d40"
+    },
+    "experiments/multi_river/predictions/yangtze_persistence_forecast.csv": {
+      "bytes": 10101,
+      "sha256": "4c46fcd64e6440092018ee0ebad0cad7f3582e5102a67c81bd1756b873fe6da5"
+    },
+    "experiments/multi_river/predictions/yangtze_physics_guided_backtest.csv": {
+      "bytes": 615442,
+      "sha256": "8a315462a49fa652f7775a499bc4fc6e6cea5bfd378578b0aff674a5e484f7af"
+    },
+    "experiments/multi_river/predictions/yangtze_physics_guided_forecast.csv": {
+      "bytes": 13643,
+      "sha256": "82656b419efc8bdd1417e2169d7176a90e4fc4ec7b4f9c05ab08259c0e7905a5"
+    },
+    "experiments/multi_river/predictions/yellow_river_data_only_backtest.csv": {
+      "bytes": 591756,
+      "sha256": "e369f4f7ce1843223ef42296e8ac94a2b194a6169793a1ea5a42cd0b328dfa30"
+    },
+    "experiments/multi_river/predictions/yellow_river_data_only_forecast.csv": {
+      "bytes": 9973,
+      "sha256": "e31447b091dc0ec1843f4dcb566ddeafaef51ac85ea9e5db5f26b97ed0ee81da"
+    },
+    "experiments/multi_river/predictions/yellow_river_persistence_backtest.csv": {
+      "bytes": 601038,
+      "sha256": "d9113caa22c4f7f3ad2554636d39cdd7432040e2a05cc2b804fbb5c99d2be9c5"
+    },
+    "experiments/multi_river/predictions/yellow_river_persistence_forecast.csv": {
+      "bytes": 10161,
+      "sha256": "74866b9b4fe3810a7d35896a1c1a715fbd485455a0ecf5dd91959548d53e0957"
+    },
+    "experiments/multi_river/predictions/yellow_river_physics_guided_backtest.csv": {
+      "bytes": 616135,
+      "sha256": "5354c98fc6ef0ffdb8969bcc277b752400daccb9005147c997bd9edeb5c53d21"
+    },
+    "experiments/multi_river/predictions/yellow_river_physics_guided_forecast.csv": {
+      "bytes": 13516,
+      "sha256": "66a07f79b30daf192e6dd2f7afeac9974842090bbd7343944fd2649546420f47"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_fine_tuned_42.pt": {
+      "bytes": 26891,
+      "sha256": "3808d6441b54cafd4524b22756d23308f0db2819a4a07328b90c9a01d0ed5a44"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_fine_tuned_43.pt": {
+      "bytes": 26891,
+      "sha256": "b5918f2d6d36d267c38983669db608c0c82f1c731537be1257c735f63c6996c5"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_fine_tuned_44.pt": {
+      "bytes": 26891,
+      "sha256": "667d2e24fb8a5327ac9e121a8e3969398baebbe964d97c878b850e1485058283"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_target_only_42.pt": {
+      "bytes": 26840,
+      "sha256": "be34756e76bb1c3520808f780748f90792042b9b7344822404a64807b494e131"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_target_only_43.pt": {
+      "bytes": 26840,
+      "sha256": "23be3c89619b47f668aa246c99e7c5a0e82ff52efb19cb50d712080ef2c2a0f6"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_target_only_44.pt": {
+      "bytes": 26840,
+      "sha256": "4dbbb09a0e73cee0c5cdc615b763bc486d39fec0f2d5c6bc275e62af7b9c59d3"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_zero_shot_42.pt": {
+      "bytes": 26366,
+      "sha256": "e2ec7369a2d22ffc1d24df13a1359e43ba9422aea4acbefb02ced89e15a65e95"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_zero_shot_43.pt": {
+      "bytes": 26366,
+      "sha256": "d45fafc572c14f53952d3bb35c495c9f6c4bd6ba8607850866c706ff6034f6e2"
+    },
+    "experiments/multi_river/transfer/models/mississippi_to_yellow_river_zero_shot_44.pt": {
+      "bytes": 26366,
+      "sha256": "2876a34caf9af592789f170342e086b7a65252dc94deac07885073b8297e11af"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_fine_tuned_42.pt": {
+      "bytes": 26955,
+      "sha256": "51eca49cc7e05f0d991c6fb353048f3daa2f19274cfc3ad57c2735a3723c60d8"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_fine_tuned_43.pt": {
+      "bytes": 26955,
+      "sha256": "f638517d7c8c0d1d0a52eb2e1c6b0ab69e4edf53c442d037c7caef18a0707996"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_fine_tuned_44.pt": {
+      "bytes": 26955,
+      "sha256": "26f7f379dd991915cf7d08837ea11a27aed223bbc7a6ff7775a29e834634d5cd"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_target_only_42.pt": {
+      "bytes": 26968,
+      "sha256": "030a71f1510e8afde21fde2fd006540cd32fc5536cc565d14bbe100ac96df31b"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_target_only_43.pt": {
+      "bytes": 26968,
+      "sha256": "a35a68f4563e6e020c88c757dac991f7eebc4ac0e5118bc241d1db2ec7beb84d"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_target_only_44.pt": {
+      "bytes": 26968,
+      "sha256": "0419b0bc6c056d50b8995fecf1586006a11fca05d8e1acf80a64a93e5507addc"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_zero_shot_42.pt": {
+      "bytes": 26430,
+      "sha256": "9f21e1f5925f0759f39fcd70253ad0dbcfddd31f551bc0330c040ee0befb1dd9"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_zero_shot_43.pt": {
+      "bytes": 26430,
+      "sha256": "878dea7ddb1a9d05aff098ada69cabdbb1e2e998eda1a33394efebdb96250bcd"
+    },
+    "experiments/multi_river/transfer/models/yellow_river_to_mississippi_zero_shot_44.pt": {
+      "bytes": 26430,
+      "sha256": "933e813feb8cef7537841f325986e28769ce17e43eb6f803bc8a8adf0542f38b"
+    },
+    "experiments/multi_river/transfer/results.json": {
+      "bytes": 18941,
+      "sha256": "1e95cdc71fde54599e535a48d3977298c42ecb26f2c473429f39e7c5c5d1a81d"
+    },
+    "experiments/multi_river/website_data.json": {
+      "bytes": 385296,
+      "sha256": "03106a2ac9827cfd9b3e93d995b7a6dbbe8c3af667b0b0efa03e1e73b9f897ea"
+    },
+    "index.html": {
+      "bytes": 210,
+      "sha256": "0d4be6ac5941c5c8414d31b5636b42e050ed4fdfd4ef1de6d7dfdb086a28c61d"
+    },
+    "scripts/export_river_site.py": {
+      "bytes": 3936,
+      "sha256": "4bbbc924f0a1f23bccb1bc544cc0d823907a76f670ef10802eaaddcfc63f6ee4"
+    },
+    "scripts/predict_river.py": {
+      "bytes": 3387,
+      "sha256": "e23acfe7828956c51916fe37ad32e4cf800084b5972661da8ec78aa0a5b36936"
+    },
+    "scripts/run_multi_river.py": {
+      "bytes": 25276,
+      "sha256": "f49a325ab3a2622f0beeaa24baf9222bfc2fbdffe37c96485968f6b9f3027b48"
+    },
+    "src/data/multi_river.py": {
+      "bytes": 14585,
+      "sha256": "780259fc8118efb2e195c6f7795540bf049e3b2dabdf055024d8bc4a7eb10015"
+    },
+    "src/models/multi_river.py": {
+      "bytes": 8760,
+      "sha256": "e49411c675d04463ae5f3e7897ee17c54e45c0942133dae9cd71e46843a5f658"
+    },
+    "website/app.js": {
+      "bytes": 26267,
+      "sha256": "99df27a00b15c5aaea49c9b1941a99a956f100be2f831df7f51abcfa91af32cc"
+    },
+    "website/assets/river_lab_data.js": {
+      "bytes": 193175,
+      "sha256": "362554819bcc505e8c4115c03f18e22317c22d685d76f30e528a4d5cecb57fe7"
+    },
+    "website/index.html": {
+      "bytes": 12671,
+      "sha256": "ee370c05edfb686d62af6fcdfaaec63e4615485b6553e6457a4925be5db0aa70"
+    },
+    "website/styles.css": {
+      "bytes": 28313,
+      "sha256": "eb7ed03f5d0960c14878441d34c949a8b28aa42d9116632aefcf42266b786cc7"
+    }
+  }
+}

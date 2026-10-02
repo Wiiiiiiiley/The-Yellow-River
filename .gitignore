@@ -56,6 +56,9 @@ models/checkpoints/
 .DS_Store
 Thumbs.db
 
+# Local recovery copies (not part of the public research release)
+.river_lab_backups/
+
 # AutoPilot System
 logs/*.log
 logs/*.log.*

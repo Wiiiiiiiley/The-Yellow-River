@@ -22,7 +22,7 @@ data:
   # 数据源优先级
   sources:
     - type: "sqlite"
-      path: "data/autopilot.db"
+      path: "data/processed/autopilot.db"
     - type: "csv"
       path: "data/archive/"
     - type: "api"

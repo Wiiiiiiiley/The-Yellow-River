@@ -1,0 +1,80 @@
+{
+  "yellow_river": {
+    "id": "yellow_river", "name_zh": "黄河", "name_en": "Yellow River", "region": "中国 · 东亚",
+    "summary": "以高输沙与季节性径流为比较主题的演示情景。",
+    "hydrology": "夏季降雨驱动；突出涨落水过程中的泥沙滞回。",
+    "width_m": 420, "slope": 0.00045, "manning_n": 0.032, "base_discharge": 1100,
+    "sediment_scale": 8.0, "flood_peak_day": 215, "lag_hours": 5,
+    "seasonal_amplitude": 0.42, "rainfall_scale": 2.8, "runoff_response": 0.28,
+    "temperature_mean": 12, "temperature_amplitude": 13,
+    "station_ids": ["r1", "r2", "r3", "r4", "r5"],
+    "reach_names": ["示意上游", "示意中上游", "示意中游", "示意中下游", "示意下游"],
+    "source_status": "synthetic", "parameter_status": "illustrative_uncalibrated",
+    "source_ids": ["yellow_loess", "manning"]
+  },
+  "mississippi": {
+    "id": "mississippi", "name_zh": "密西西比河", "name_en": "Mississippi River", "region": "美国 · 北美",
+    "summary": "以春季高流量、平缓河道和河流工程为比较主题的演示情景。",
+    "hydrology": "设置春季洪水脉冲与较长传播时滞；未表达真实支流网络或堤防运行。",
+    "width_m": 850, "slope": 0.00012, "manning_n": 0.035, "base_discharge": 14000,
+    "sediment_scale": 0.28, "flood_peak_day": 120, "lag_hours": 12,
+    "seasonal_amplitude": 0.32, "rainfall_scale": 2.1, "runoff_response": 0.22,
+    "temperature_mean": 16, "temperature_amplitude": 12,
+    "station_ids": ["r1", "r2", "r3", "r4", "r5"],
+    "reach_names": ["示意上游", "示意中上游", "示意中游", "示意中下游", "示意下游"],
+    "source_status": "synthetic", "parameter_status": "illustrative_uncalibrated",
+    "source_ids": ["mississippi_engineering", "manning"]
+  },
+  "yangtze": {
+    "id": "yangtze", "name_zh": "长江", "name_en": "Yangtze River", "region": "中国 · 东亚",
+    "summary": "以季风洪水与大流量变化为主题的演示情景。",
+    "hydrology": "设置夏季季风型流量峰值；未模拟真实水库群调度。",
+    "width_m": 1000, "slope": 0.00018, "manning_n": 0.033, "base_discharge": 24000,
+    "sediment_scale": 0.45, "flood_peak_day": 195, "lag_hours": 9,
+    "seasonal_amplitude": 0.38, "rainfall_scale": 3.3, "runoff_response": 0.24,
+    "temperature_mean": 18, "temperature_amplitude": 10,
+    "station_ids": ["r1", "r2", "r3", "r4", "r5"],
+    "reach_names": ["示意上游", "示意中上游", "示意中游", "示意中下游", "示意下游"],
+    "source_status": "synthetic", "parameter_status": "illustrative_uncalibrated",
+    "source_ids": ["yangtze_basin", "manning"]
+  },
+  "amazon": {
+    "id": "amazon", "name_zh": "亚马孙河", "name_en": "Amazon River", "region": "南美洲",
+    "summary": "以热带大流量与缓慢洪峰传播为主题的演示情景。",
+    "hydrology": "设置宽缓季节洪峰与较长时滞；未模拟真实洪泛平原蓄水。",
+    "width_m": 3200, "slope": 0.00004, "manning_n": 0.040, "base_discharge": 130000,
+    "sediment_scale": 0.16, "flood_peak_day": 165, "lag_hours": 18,
+    "seasonal_amplitude": 0.27, "rainfall_scale": 4.0, "runoff_response": 0.16,
+    "temperature_mean": 27, "temperature_amplitude": 1.8,
+    "station_ids": ["r1", "r2", "r3", "r4", "r5"],
+    "reach_names": ["示意上游", "示意中上游", "示意中游", "示意中下游", "示意下游"],
+    "source_status": "synthetic", "parameter_status": "illustrative_uncalibrated",
+    "source_ids": ["amazon_hydrology", "manning"]
+  },
+  "nile": {
+    "id": "nile", "name_zh": "尼罗河", "name_en": "Nile River", "region": "非洲东北部",
+    "summary": "以干旱地区低降雨与平缓流量变化为主题的演示情景。",
+    "hydrology": "用较小季节振幅表达一个理想化调节情景；未包含任何真实水库放流规则。",
+    "width_m": 500, "slope": 0.00010, "manning_n": 0.030, "base_discharge": 2200,
+    "sediment_scale": 0.08, "flood_peak_day": 250, "lag_hours": 14,
+    "seasonal_amplitude": 0.12, "rainfall_scale": 0.6, "runoff_response": 0.10,
+    "temperature_mean": 24, "temperature_amplitude": 7,
+    "station_ids": ["r1", "r2", "r3", "r4", "r5"],
+    "reach_names": ["示意上游", "示意中上游", "示意中游", "示意中下游", "示意下游"],
+    "source_status": "synthetic", "parameter_status": "illustrative_uncalibrated",
+    "source_ids": ["nile_regulation", "manning"]
+  },
+  "danube": {
+    "id": "danube", "name_zh": "多瑙河", "name_en": "Danube River", "region": "欧洲中东部",
+    "summary": "以温带季节变化和跨境流域为主题的演示情景。",
+    "hydrology": "设置温带春季流量峰值与中等传播时滞；未拟合真实融雪或支流水量。",
+    "width_m": 430, "slope": 0.00020, "manning_n": 0.033, "base_discharge": 4200,
+    "sediment_scale": 0.12, "flood_peak_day": 140, "lag_hours": 8,
+    "seasonal_amplitude": 0.25, "rainfall_scale": 1.8, "runoff_response": 0.20,
+    "temperature_mean": 11, "temperature_amplitude": 11,
+    "station_ids": ["r1", "r2", "r3", "r4", "r5"],
+    "reach_names": ["示意上游", "示意中上游", "示意中游", "示意中下游", "示意下游"],
+    "source_status": "synthetic", "parameter_status": "illustrative_uncalibrated",
+    "source_ids": ["danube_basin", "manning"]
+  }
+}

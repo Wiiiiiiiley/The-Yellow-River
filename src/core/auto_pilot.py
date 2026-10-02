@@ -18,8 +18,8 @@ try:
 except ImportError:
     AsyncIOScheduler = None
 
-from smart_flood_system.main_system import SmartFloodSystem
-from smart_flood_system.data_adapter import get_data_adapter
+from src.core.main_system import SmartFloodSystem
+from src.data.data_adapter import get_data_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -305,7 +305,7 @@ class AutoReporter:
 class AutoPilot:
     """全自动驾驶系统 - 采集-训练-进化"""
     
-    def __init__(self, config_path: str = "smart_flood_system/configs/auto_pilot.yaml"):
+    def __init__(self, config_path: str = "configs/auto_pilot.yaml"):
         """初始化 AutoPilot"""
         
         # 加载配置

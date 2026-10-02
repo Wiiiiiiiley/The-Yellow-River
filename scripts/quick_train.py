@@ -122,6 +122,7 @@ for epoch in range(20):
     if val_loss < best_loss:
         best_loss = val_loss
         torch.save({
+            'protocol_version': 2,
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             'val_loss': val_loss,
