@@ -1,361 +1,272 @@
-# 智慧黄河防汛 PINN v3.0 · 多河流比较研究
+<div align="center">
 
-## 多河流模型与个人网站展示
+# 🌊 The Yellow River
 
-新增黄河、密西西比河、长江、亚马孙河、尼罗河、多瑙河的独立训练与预测流程，以及黄河和密西西比河的双向迁移学习实验。所有新文件保存在本项目内，原有黄河训练入口与检查点保留。
+### Six rivers. One question: what can river models learn from each other?
 
-新实验使用物理引导图时序网络、相同架构的纯数据模型和持续性基线。每条河输入 24 小时、输出未来 6 小时，预测 5 个示意河段的水深、流量和泥沙浓度。默认数据为带传播滞后和曼宁水深关系的合成情景；河道参数尚未经实测校准。新增实验和原有完整 PINN 的方法、检查点及评估协议分开管理。
+A research portfolio exploring river forecasting, physics-guided learning,  
+and knowledge transfer between the Yellow River and the Mississippi.
+
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/Models-PyTorch-EE4C2C?logo=pytorch&logoColor=white)
+![Rivers](https://img.shields.io/badge/Rivers-6-087E8B)
+![Research Demo](https://img.shields.io/badge/Data-Synthetic-E9C46A)
+
+[Overview](#overview) · [Quick Start](#quick-start) · [Results](#results) · [Transfer Learning](#transfer-learning) · [Website](#website) · [Documentation](#documentation)
+
+</div>
+
+![River Model Lab website preview](website/assets/preview.jpg)
+
+> **Research demonstration, not an operational forecasting system.**  
+> The included multi-river datasets are synthetic. Results describe performance on those datasets—not validated forecasting accuracy on real rivers.
+
+## Overview
+
+This project began with Yellow River modeling and grew into a comparative river-learning laboratory.
+
+It brings together six river profiles, reproducible forecasting experiments, a bidirectional transfer-learning study, and an interactive website designed for a personal research portfolio.
+
+| River | Identifier |
+|:------|:-----------|
+| Yellow River | `yellow_river` |
+| Mississippi | `mississippi` |
+| Yangtze | `yangtze` |
+| Amazon | `amazon` |
+| Nile | `nile` |
+| Danube | `danube` |
+
+Each profile contains five illustrative river reaches. These are modeling nodes, not calibrated gauging stations.
+
+### At a glance
+
+| Component | Included |
+|:----------|:---------|
+| Input window | Past 24 hours |
+| Forecast horizon | Next 6 hours |
+| Prediction targets | Water depth, discharge, sediment concentration |
+| Main experiments | Physics-guided model, data-only model, persistence baseline |
+| Transfer study | Yellow River ↔ Mississippi, three random seeds |
+| Saved checkpoints | 12 main models + 18 transfer models |
+| Presentation | Responsive, dependency-free static website |
+
+## Quick Start
+
+### Explore the website
+
+No model training or JavaScript build step is required.
 
 ```bash
-# 训练六条河，输出模型、预测、指标及三个随机种子的双向迁移结果
-python3 scripts/run_multi_river.py --epochs 25 --hours 8760 --transfer-seeds 42,43,44
+git clone --branch feature/enhanced-pinn-v3.0 \
+  https://github.com/Wiiiiiiiley/The-Yellow-River.git
 
-# 查看研究展示页面（也可直接打开 website/index.html）
+cd The-Yellow-River
 python3 -m http.server 8080
-# 浏览器打开 http://localhost:8080/website/
-
-# 从保存的模型重新预测，必须明确输入数据来源
-python3 scripts/predict_river.py --river mississippi \
-  --input experiments/multi_river/data/mississippi.csv --source-status synthetic \
-  --output experiments/multi_river/predictions/mississippi_reloaded.csv
-
-# 导出独立的静态网站目录，供个人网站托管
-python3 scripts/export_river_site.py --output public_river_lab
 ```
 
-详细说明：[多河流研究方法](docs/multi_river_study.md)、[黄河与密西西比河比较](docs/yellow_mississippi_comparison.md)、[本次实验结果](docs/multi_river_results.md)、[个人网站发布指南](docs/publishing_guide.md)。预测、模型和下载文件位于 `experiments/multi_river/`。新增轻量流程使用 Python 3.10+、`torch` 与 `numpy`。
+Open **http://localhost:8080/website/**.
 
-原有 `create_enhanced_model` 现支持可配置的 `river_width` 与 `physical_prior`，以及非五节点图结构。默认五节点先验保持与原检查点一致。
+The current website interface and supporting study documents are primarily in Chinese; this README provides an English project overview.
 
----
+### Set up the modeling environment
 
-**Physics-Informed Neural Network for Yellow River Flood Prediction** —— 基于物理信息神经网络的黄河洪水预测系统，对比验证物理约束对预测精度的提升。
+The multi-river pipeline requires Python 3.10+, NumPy, and PyTorch.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-
----
-
-## 🌊 核心功能
-
-**PINN vs Baseline 双模型对比系统**
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  黄河防汛 PINN v3.0                              │
-├─────────────────────────────────────────────────────────────────┤
-│  📊 双模型对比训练                                               │
-│  ├── PINN (STGNN + 物理约束)        68.5万参数                   │
-│  │   ├── 圣维南方程（连续性）                                     │
-│  │   ├── 动量方程（曼宁摩擦）                                     │
-│  │   ├── Exner泥沙输运方程                                       │
-│  │   └── NTK自适应权重 + 课程学习                                │
-│  │                                                               │
-│  └── Baseline (纯LSTM)              33.6万参数                   │
-│      └── 纯数据驱动，无物理约束                                   │
-├─────────────────────────────────────────────────────────────────┤
-│  📈 评估对比维度                                                 │
-│  ├── 水位预测精度 (R²)                                          │
-│  ├── 流量预测精度 (MSE/MAE)                                     │
-│  ├── 泥沙浓度预测                                               │
-│  └── 物理一致性验证                                             │
-├─────────────────────────────────────────────────────────────────┤
-│  🎯 研究目标                                                   │
-│  └── 验证物理约束在极端洪水场景下的稳定性优势                      │
-└─────────────────────────────────────────────────────────────────┘
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install numpy torch
 ```
 
-### 当前状态
-- ✅ **架构修复**: Baseline LSTM 与 PINN 公平对比（均处理5节点）
-- ✅ **中文支持**: 可视化图表正确显示中文
-- ✅ **归一化修复**: 自动输入归一化/输出反归一化
-- ✅ **物理量纲修复**: 物理损失在恢复米、m³/s、kg/m³ 后计算
-- ✅ **NTK 权重修复**: 直接计算两类损失的梯度范数
-- ⚠️ **数据限制**: 当前使用合成数据（需真实黄河数据体现PINN优势）
+The broader dependencies in `requirements.txt` support the original Yellow River workflow and additional tools.
 
----
+## Modeling Approach
 
-## 📁 项目结构
+The multi-river model combines **directed upstream aggregation** with a shared **GRU temporal encoder**.
 
+```text
+24 hours of observations
+          ↓
+Directed river-graph aggregation
+          ↓
+GRU temporal encoder
+          ↓
+6-hour forecasts across five reaches
 ```
+
+Inputs include water depth, discharge, sediment concentration, temperature, rainfall, and a seasonal feature.
+
+Three methods are evaluated:
+
+| Method | Purpose |
+|:-------|:--------|
+| Physics-guided graph GRU | Adds a Manning-based depth–discharge consistency penalty and nonnegativity penalties |
+| Data-only graph GRU | Uses the same architecture without physics regularization |
+| Persistence | Repeats the latest observed value as a simple baseline |
+
+The physics-guided model is **not a full PDE-constrained PINN** and does not solve the complete Saint-Venant or Exner equations. The repository also retains the original Yellow River PINN/STGNN experiments as a separate workflow.
+
+### Reproduce the experiments
+
+```bash
+python3 scripts/run_multi_river.py \
+  --epochs 25 \
+  --hours 8760 \
+  --seed 42 \
+  --transfer-seeds 42,43,44
+```
+
+This regenerates experiment outputs, including checkpoints, predictions, metrics, and website data.
+
+The evaluation uses chronological 70% / 15% / 15% splits. Normalization statistics come from the training period, and forecast targets do not cross split boundaries.
+
+## Results
+
+The included snapshot uses **8,760 synthetic hourly samples per river**.
+
+### Discharge forecasting
+
+Test RMSE in **m³/s**; lower is better.
+
+| River | Physics-guided | Data-only | Persistence |
+|:------|---------------:|----------:|------------:|
+| Yellow River | 9.70 | 9.70 | 10.28 |
+| Mississippi | 86.73 | 86.71 | 88.86 |
+| Yangtze | 142.18 | 142.26 | 144.27 |
+| Amazon | 607.09 | 607.07 | 611.63 |
+| Nile | 9.59 | 9.59 | 9.88 |
+| Danube | 22.84 | 22.84 | 23.94 |
+
+**What this shows:** the learned models modestly outperform persistence in this synthetic snapshot. Differences between the physics-guided and data-only models are small; these results do not establish a consistent benefit from physics regularization.
+
+Absolute errors should not be used to rank rivers against each other because their discharge scales differ.
+
+Additional metrics include MAE, bias, NSE, and range-normalized RMSE. Forecast bands use empirical validation residuals, with coverage evaluated on the test set; they are not guaranteed confidence intervals.
+
+## Transfer Learning
+
+Can a model trained on one river help forecast another?
+
+The study compares three strategies in both directions:
+
+- **Target-only:** train from scratch using a reduced target-label budget.
+- **Zero-shot:** apply the source-trained model without target fine-tuning.
+- **Fine-tuned:** adapt the source-trained model using the same reduced target-label budget.
+
+### Included findings
+
+Mean NRMSE across water depth, discharge, and sediment, averaged over three seeds:
+
+| Transfer direction | Target-only | Zero-shot | Fine-tuned | Error change vs. target-only |
+|:-------------------|------------:|----------:|-----------:|----------------------------:|
+| Yellow River → Mississippi | 0.0226 | 0.0493 | 0.0246 | **+8.9%** |
+| Mississippi → Yellow River | 0.0193 | 0.0341 | 0.0182 | **−5.6%** |
+
+**Transfer is asymmetric.** Fine-tuning helps in the Mississippi-to-Yellow direction but increases error in the reverse direction.
+
+These experiments demonstrate both positive and negative transfer—not a universal advantage.
+
+> Target training-input statistics are available for normalization, including in the zero-shot setting. Target validation labels are used for model selection. Source pretraining also adds computational cost.
+
+## Website
+
+The static showcase makes the experiments accessible through:
+
+- Six river profiles and interactive forecasts.
+- Water-depth, discharge, and sediment views.
+- Five-reach selection and backtest comparisons.
+- Prediction bands, model metrics, and transfer results.
+- Source references and downloadable artifacts.
+
+### Preview the publication bundle
+
+```bash
+python3 -m http.server 8080 --directory public_river_lab
+```
+
+Open **http://localhost:8080/**.
+
+To export a fresh bundle into a new directory:
+
+```bash
+python3 scripts/export_river_site.py --output public_river_lab_new
+```
+
+The exporter packages existing results; it does not retrain models and refuses to overwrite an existing destination.
+
+A ready-to-upload archive is included: [public_river_lab.zip](public_river_lab.zip). No public deployment URL is configured in this repository.
+
+## Working with Real Data
+
+The pipeline accepts explicit observed-data inputs:
+
+```bash
+python3 scripts/run_multi_river.py --data-dir /path/to/river_csvs
+```
+
+Provide a `<river_id>.csv` file for every selected river, using these columns:
+
+```text
+timestamp,node_id,water_depth,discharge,sediment,temperature,rainfall
+```
+
+Expected units:
+
+| Variable | Unit |
+|:---------|:-----|
+| Water depth | m |
+| Discharge | m³/s |
+| Sediment concentration | kg/m³ |
+| Temperature | °C |
+| Rainfall | mm/h |
+
+Real-data use requires consistent timestamps, reach mapping, quality control, and calibrated physical parameters. The included illustrative geometry should not be treated as measured river geometry.
+
+## Project Structure
+
+```text
 The-Yellow-River/
-├── scripts/                    # 可执行脚本 ✅ 已整理
-│   ├── train_model.py          # PINN完整训练
-│   ├── train_both_models.py    # PINN + Baseline 双模型训练 ✅ 新增
-│   ├── quick_train.py          # 快速训练（20 epochs）
-│   ├── generate_predictions.py # 生成预测（含归一化修复）✅ 已修复
-│   ├── visualize_results.py    # 可视化（中文支持）✅ 已修复
-│   └── compare_baseline.py   # 模型对比
-├── src/                        # 源代码
-│   ├── models/
-│   │   ├── stgnn_enhanced.py          # STGNN v3.0 模型
-│   │   ├── physics_constraints_enhanced.py  # PINN 物理约束
-│   │   └── baseline_models.py         # Baseline LSTM ✅ 已修复多节点
-│   ├── data/
-│   │   └── data_adapter.py            # 数据接入层
-│   ├── training/
-│   │   └── BASELINE_QUICKSTART.py     # Baseline快速入门
-│   └── utils/
-├── configs/                    # 配置文件
-├── data/                       # 数据目录（待添加真实数据）
-├── experiments/                # 实验输出
-│   ├── models/                 # 训练好的模型
-│   │   ├── pinn_best.pth
-│   │   ├── baseline_best.pth
-│   │   └── training_history.json
-│   ├── predictions/            # 预测结果
-│   └── visualizations/         # 可视化图表
-├── README_TRAINING.md          # 独立训练指南 ✅ 新增
-├── README_REAL_DATA.md         # 真实数据训练指南 ✅ 新增
-└── README.md                   # 本文件
+├── configs/                   # River profiles and source references
+├── src/                       # Models and supporting code
+├── scripts/                   # Training, prediction, export, verification
+├── experiments/multi_river/   # Saved models, forecasts, metrics, manifests
+├── docs/                      # Study notes and publication guidance
+├── tests/                     # Automated tests
+├── website/                   # Interactive research showcase
+├── public_river_lab/          # Self-contained publication bundle
+└── public_river_lab.zip       # Packaged static-site export
 ```
 
----
-
-## 🚀 快速开始
-
-### 安装依赖
+## Verification
 
 ```bash
-# 进入项目目录
-cd /Users/winniemei/CascadeProjects/黄河
-
-# 安装依赖
-pip install torch torch-geometric gym numpy pandas pyyaml streamlit plotly
-
-# 生产环境额外依赖
-pip install torch-scatter torch-sparse torch-cluster -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
-
-# AutoPilot 依赖
-pip install apscheduler optuna aiohttp
+python3 -B -m unittest discover -s tests -v
+python3 -B scripts/verify_multi_river.py
 ```
 
-### 模型训练（当前可用）
+Verification covers saved artifacts, checkpoint loading, forecast reproduction, training-only normalization, and publication downloads.
 
-```bash
-# 1. 快速训练 PINN（20 epochs，约3-5分钟）
-python3 scripts/quick_train.py
+## Documentation
 
-# 2. 完整训练 PINN（100 epochs，约15-20分钟）
-python3 scripts/train_model.py
+The following detailed guides are currently written in Chinese:
 
-# 3. 双模型对比训练（PINN + Baseline，50 epochs）
-python3 scripts/train_both_models.py
-```
+| Guide | Topic |
+|:------|:------|
+| [Multi-river study](docs/multi_river_study.md) | Experimental design and modeling choices |
+| [Yellow River–Mississippi comparison](docs/yellow_mississippi_comparison.md) | River comparison and transfer-learning methodology |
+| [Results report](docs/multi_river_results.md) | Generated metrics and interpretation |
+| [Publishing guide](docs/publishing_guide.md) | Website packaging and deployment preparation |
+| [Original training guide](README_TRAINING.md) | Legacy Yellow River workflow |
+| [Real-data guide](README_REAL_DATA.md) | Original observed-data workflow |
 
-### 生成预测与可视化
-
-```bash
-# 4. 生成预测（自动归一化/反归一化）
-python3 scripts/generate_predictions.py
-
-# 5. 可视化结果（支持中文显示）
-python3 scripts/visualize_results.py
-
-# 6. PINN vs Baseline 对比
-python3 scripts/compare_baseline.py
-```
-
-### 查看训练指南
-
-```bash
-# 详细训练说明
-cat README_TRAINING.md
-
-# 真实数据训练说明
-cat README_REAL_DATA.md
-```
+Background references are recorded in [configs/river_sources.json](configs/river_sources.json). They support the scientific context, not validation of the synthetic data or illustrative parameters.
 
 ---
 
-## 🔧 项目改进记录
+<div align="center">
 
-### 近期修复 ✅
+**Understand the river. Test the model. Show the evidence.**
 
-| 问题 | 解决方案 | 文件 |
-|------|---------|------|
-| **Baseline架构不公平** | 修复为真正处理5节点输入/输出 | `src/models/baseline_models.py` |
-| **归一化缺失** | 添加输入归一化/输出反归一化 | `scripts/generate_predictions.py` |
-| **中文显示方格** | 添加matplotlib中文字体配置 | `scripts/visualize_results.py` |
-| **文件结构混乱** | 整理脚本到`scripts/`目录 | - |
-| **物理约束权重** | 恢复完整PINN配置(NTK/课程学习/泥沙) | `scripts/train_both_models.py` |
+A personal research portfolio connecting hydrology, machine learning, and transparent experimentation.
 
-### 已知问题 ⚠️
-
-- **合成数据限制**: 当前使用合成数据，无真实物理规律
-- **PINN表现**: 在合成数据上可能不如Baseline
-- **解决方案**: 使用真实黄河水文数据（见`README_REAL_DATA.md`）
-
-### 下一步建议
-
-1. **短期**: 使用当前合成数据验证代码流程
-2. **中期**: 获取真实黄河水文数据（水位/流量/泥沙）
-3. **长期**: 用真实数据重新训练，体现PINN物理约束优势
-
----
-
-## 🔬 研究价值
-
-### 核心研究贡献
-
-1. **物理信息深度学习用于水文学**
-   > "我将圣维南方程（连续性方程、动量方程）作为软约束整合到 STGNN-Transformer 架构中，通过 NTK 自适应权重平衡数据拟合与物理一致性，确保预测在极端外推条件下仍满足质量/动量守恒。"
-
-2. **PINN vs Baseline 公平对比框架**
-   > "我设计了严格的对照实验：相同数据、相同架构复杂度下，对比物理约束模型（PINN）与纯数据驱动模型（Baseline LSTM）。关键在于修复 Baseline 的多节点处理能力，确保两者在公平条件下竞争，验证物理约束的真实价值。"
-
-3. **泥沙输运物理建模**
-   > "我实现了 Exner 泥沙连续性方程，将泥沙浓度预测与水动力学耦合。黄河独特的"大水大沙"特性要求模型不仅拟合统计关系，更要理解泥沙侵蚀-沉积的物理机制。"
-
-4. **数据归一化与物理一致性**
-   > "我解决了 PINN 训练中的关键工程问题：自动归一化输入/反归一化输出，确保物理方程在无量纲空间计算正确，同时预测结果恢复物理量纲（米、m³/s、kg/m³）。"
-
-### 实验结论状态
-
-旧检查点和图表使用了不公平的 Baseline 站点平均目标、独立的验证/测试归一化，以及未生效的 NTK 权重。这些历史指标已失效，不应用于支持 PINN 优于 Baseline 的结论。
-
-修正后的训练会写入 `protocol_version: 2`；预测和对比脚本会拒绝读取旧协议检查点。需重新运行 `python3 scripts/train_both_models.py` 后才能生成新的可比指标。
-
----
-
-## 🎯 当前性能基准（待重新训练）
-
-| 指标 | PINN | Baseline | 备注 |
-|------|------|----------|------|
-| 参数量 | 68.5万 | 33.6万 | PINN 多一倍 |
-| 水位 MAE | 待测 | 待测 | protocol v2 |
-| 水位 R² | 待测 | 待测 | protocol v2 |
-| 流量 R² | 待测 | 待测 | protocol v2 |
-| 训练时间 | 15min | 8min | 50 epochs |
-
-**待验证**：真实数据下 PINN 物理约束应在极端场景显著优于 Baseline。
-
----
-
-## 🔧 技术规格
-
-### 输入输出
-- **输入**: (batch, 24时间步, 5站点, 6特征)
-  - 特征：水位(m)、流量(m³/s)、泥沙(kg/m³)、温度(°C)、降雨(mm)、其他
-- **输出**: (batch, 6预测步, 5站点, 6特征)
-
-### PINN 架构
-- **STGNN**: 3层 GAT + 自适应图结构
-- **Transformer**: 4层，8头注意力
-- **物理约束**: 连续性方程 + 动量方程 + Exner泥沙方程
-- **自适应**: NTK权重平衡 + 课程学习
-
-### Baseline 架构
-- **LSTM**: 2层，128 hidden size
-- **注意力**: Multi-head 自注意力
-- **输出**: 真正多节点（非复制），与PINN公平对比
-
-### 黄河个性学习 ⭐ 新增
-- **季节编码**: 汛期/枯水期周期的 Sin/Cos 编码（年度+季度）
-- **特征交叉**: Q×S 显式交互实现"大水大沙"
-- **泥沙梯度监控**: 检测洪峰期间的突发模式
-- **Exner 动力学**: 带孔隙参数的侵蚀/沉积建模
-- **NTK 自适应加权**: 训练期间自动物理权重调整
-- **两阶段训练**: Adam（1000 轮）→ L-BFGS（物理残差 < 0.1）
-
-### 验证
-- **双模型对比**: PINN vs Baseline LSTM
-- **指标**: MSE、MAE、RMSE、R²
-- **可视化**: 预测对比图、散点图、误差分布
-
-### 数据支持
-- **当前**: 合成洪水数据（用于验证代码流程）
-- **待添加**: 真实黄河水文数据（SQLite/CSV/API）
-- **站点**: 兰州 → 河口镇 → 龙门 → 三门峡 → 花园口
-
----
-
-## 📊 可视化输出
-
-运行 `python3 scripts/visualize_results.py` 生成：
-
-1. **water_level_comparison.png** - 水位预测对比（5站点×6时间步）
-2. **discharge_comparison.png** - 流量预测对比
-3. **sediment_comparison.png** - 泥沙浓度预测对比
-4. **scatter_comparison.png** - 预测精度散点图（预测 vs 真实）
-5. **error_distribution.png** - 误差分布直方图
-6. **time_series_detail.png** - 时间序列详细图
-
-**中文显示已修复**（macOS系统字体配置）
-
----
-
-## 🛠️ 开发指南
-
-### 添加新功能
-
-**自定义物理约束**
-```python
-# 在 src/models/physics_constraints_enhanced.py
-# 修改 EnhancedPhysicsConstraintLoss 类
-```
-
-**调整模型架构**
-```python
-# 在 src/models/stgnn_enhanced.py
-# 修改 GNN 层数、Transformer 头数等
-```
-
-**修改训练参数**
-```python
-# 在 scripts/train_both_models.py
-# 调整 epochs、batch_size、学习率等
-```
-
-### 测试模型
-
-```bash
-# 快速测试模型导入
-python3 -c "
-from src.models.stgnn_enhanced import create_enhanced_model
-from src.models.baseline_models import BaselineLSTM
-from src.models.physics_constraints_enhanced import EnhancedPhysicsConstraintLoss
-print('✅ 所有模型导入成功')
-"
-```
-
----
-
-## 📚 引用
-
-如在你的研究中使用本系统，请引用：
-
-```bibtex
-@software{smart_yellow_river_flood_system,
-  author = {Yellow River Digital Twin Project},
-  title = {Smart Flood Management System with Physics-Informed Deep Learning},
-  year = {2024},
-  url = {https://github.com/Wiiiiiiiley/The-Yellow-River}
-}
-```
-
----
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
-
----
-
-## 🤝 致谢
-
-- 黄河水利委员会提供的领域专业知识
-- PyTorch Geometric 团队的 GNN 框架
-- Informer 作者的高效注意力机制
-
----
-
-**联系方式**: 如有技术问题或合作咨询，请提交 issue 或联系开发团队。
-
-**项目状态**: v3.0 可用 - PINN vs Baseline 双模型对比系统
-- ✅ 物理信息神经网络 (PINN) 洪水预测
-- ✅ Baseline LSTM 对比基线（公平多节点架构）
-- ✅ 自动归一化/反归一化数据处理
-- ✅ 中文可视化支持
-- ⚠️ 待添加：真实黄河水文数据（当前使用合成数据）
+</div>
