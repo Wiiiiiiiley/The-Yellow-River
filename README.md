@@ -12,6 +12,8 @@
 
 运行 `python3 -B scripts/build_cloudflare_pages.py`，发布目录为 `dist/`。Cloudflare 选择 Framework **None**，构建命令使用上述命令，并在 Production / Preview 构建环境中设置 `SKIP_DEPENDENCY_INSTALL=1`，无需安装训练依赖。首页、旧 `/website/` 路径和模型下载均保留。也可用 `--zip cloudflare_pages.zip` 生成直接上传包。完整设置见 [Cloudflare Pages 部署指南](docs/cloudflare_pages.md)；构建不会自动部署或推送 GitHub。
 
+远程旧版六河英文总览保存在 [历史英文总览](README_LEGACY_MULTI_RIVER.md) 中；其中网页说明对应旧版，仅作为历史实验记录。
+
 ## 历史多河流合成实验（已从网站撤下）
 
 新增黄河、密西西比河、长江、亚马孙河、尼罗河、多瑙河的独立训练与预测流程，以及黄河和密西西比河的双向迁移学习实验。所有新文件保存在本项目内，原有黄河训练入口与检查点保留。
