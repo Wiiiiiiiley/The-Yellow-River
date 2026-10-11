@@ -1,0 +1,49 @@
+{
+  "version": "observed_daily_gru_v2",
+  "data_status": "observed",
+  "variable": "daily_mean_discharge",
+  "unit": "m³/s",
+  "model": "single-station residual GRU, not a physics-informed model",
+  "model_config": {
+    "hidden_size": 16
+  },
+  "lookback_days": 30,
+  "horizon_days": 1,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "epochs": 30,
+  "target_epochs": 30,
+  "batch_size": 64,
+  "optimizer": "Adam",
+  "learning_rate": 0.002,
+  "gradient_clip": 1.0,
+  "split_fractions": [
+    0.7,
+    0.15,
+    0.15
+  ],
+  "split_basis": "common chronological raw calendar dates",
+  "normalization": "mean/std of each river's raw training period only; target full training-input statistics also used for zero-shot",
+  "checkpoint_selection": "minimum normalized MSE on full validation labels, never test labels",
+  "missing_data": "no interpolation/imputation; windows containing missing calendar days are skipped",
+  "historical_context": "validation/test inputs may include previously observed days from earlier partitions; targets remain disjoint",
+  "test_evaluation": "rolling single-day prediction with observed past context, not multi-year free-running forecast",
+  "target_label_stride": 5,
+  "target_label_budget": "every fifth eligible training window; approximately 20% of target supervised LOSS windows, not 20% of observed inputs",
+  "transfer_budget": "target-only/fine-tuned have same labeled windows, batches, epochs and updates; full target validation labels and training-input scaler outside reduced budget; source pretraining adds labels and compute",
+  "source_train_cutoff": "2019-11-24",
+  "source_validation_cutoff": "2020-12-12",
+  "target_test_start": "2020-12-13",
+  "nrmse_definition": "RMSE divided by target TEST observed range",
+  "std_definition": "sample standard deviation across seeds, ddof=1; not a confidence interval",
+  "forecast_origin": "2021-12-31",
+  "forecast_steps": 6,
+  "forecast_mode": "recursive_historical_extension",
+  "forecast_note": "2022-01-01 through 2022-01-06 from the archived 2021-12-31 cutoff; not a current 2026 forecast; no future observed labels supplied",
+  "nonnegativity": "learned physical predictions clipped at zero",
+  "daily_dates": "native source calendar labels retained, not simultaneous UTC measurements",
+  "seasonality": "descriptive monthly mean over the common period, not a model input or training normalization statistic"
+}

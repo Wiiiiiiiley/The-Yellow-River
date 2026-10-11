@@ -59,6 +59,12 @@ Thumbs.db
 # Local recovery copies (not part of the public research release)
 .river_lab_backups/
 
+# Cloudflare Pages generated output, local state and recoverable builds
+.wrangler/
+.pages-build-backups/
+.river-pages-build-*/
+cloudflare_pages*.zip
+
 # AutoPilot System
 logs/*.log
 logs/*.log.*

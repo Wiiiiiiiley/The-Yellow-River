@@ -1,6 +1,18 @@
-# 智慧黄河防汛 PINN v3.0 · 多河流比较研究
+# 大河之间 · 黄河与密西西比河比较学习
 
-## 多河流模型与个人网站展示
+## 当前网站：黄河与密西西比河比较学习
+
+网站从流域环境与水文、泥沙与河床、水坝与水电、防洪治理、水资源与生态、沿岸生活、文化地位七个角度比较黄河和密西西比河。分析连接形成机制、治理权衡、地方社会与文化记忆，相关研究资料集中于页尾。日流量模型作为简短介绍保留，提供模型与源码下载；页面不再展示跨河模型迁移的技术表格。
+
+无需重新训练即可查看：`python3 -m http.server 8080`，打开 `http://localhost:8080/website/`。导出网站使用 `python3 scripts/export_river_site.py --output public_river_lab_new`。详见 [两河比较学习](docs/river_comparative_study.md)、[数据来源](docs/website_data_status.md) 和 [发布指南](docs/publishing_guide.md)。技术细节另存于 [模型与实验说明](docs/observed_model_study.md)，不作为网站的主要阅读内容。
+
+本次日流量模型与下方历史 PINN 实验分开管理。当前网站仅发布 `experiments/observed_rivers/` 中的两河实验，不发布旧六河合成结果。
+
+### Cloudflare Pages
+
+运行 `python3 -B scripts/build_cloudflare_pages.py`，发布目录为 `dist/`。Cloudflare 选择 Framework **None**，构建命令使用上述命令，并在 Production / Preview 构建环境中设置 `SKIP_DEPENDENCY_INSTALL=1`，无需安装训练依赖。首页、旧 `/website/` 路径和模型下载均保留。也可用 `--zip cloudflare_pages.zip` 生成直接上传包。完整设置见 [Cloudflare Pages 部署指南](docs/cloudflare_pages.md)；构建不会自动部署或推送 GitHub。
+
+## 历史多河流合成实验（已从网站撤下）
 
 新增黄河、密西西比河、长江、亚马孙河、尼罗河、多瑙河的独立训练与预测流程，以及黄河和密西西比河的双向迁移学习实验。所有新文件保存在本项目内，原有黄河训练入口与检查点保留。
 
@@ -10,17 +22,11 @@
 # 训练六条河，输出模型、预测、指标及三个随机种子的双向迁移结果
 python3 scripts/run_multi_river.py --epochs 25 --hours 8760 --transfer-seeds 42,43,44
 
-# 查看研究展示页面（也可直接打开 website/index.html）
-python3 -m http.server 8080
-# 浏览器打开 http://localhost:8080/website/
-
 # 从保存的模型重新预测，必须明确输入数据来源
 python3 scripts/predict_river.py --river mississippi \
   --input experiments/multi_river/data/mississippi.csv --source-status synthetic \
   --output experiments/multi_river/predictions/mississippi_reloaded.csv
 
-# 导出独立的静态网站目录，供个人网站托管
-python3 scripts/export_river_site.py --output public_river_lab
 ```
 
 详细说明：[多河流研究方法](docs/multi_river_study.md)、[黄河与密西西比河比较](docs/yellow_mississippi_comparison.md)、[本次实验结果](docs/multi_river_results.md)、[个人网站发布指南](docs/publishing_guide.md)。预测、模型和下载文件位于 `experiments/multi_river/`。新增轻量流程使用 Python 3.10+、`torch` 与 `numpy`。

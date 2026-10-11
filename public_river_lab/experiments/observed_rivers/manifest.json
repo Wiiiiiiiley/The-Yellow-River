@@ -1,0 +1,381 @@
+{
+  "schema_version": 2,
+  "data_status": "observed",
+  "model_status": "trained_observed_daily",
+  "files": [
+    {
+      "path": "experiments/observed_rivers/backtests/mississippi_ensemble.csv",
+      "sha256": "c41f94cd28a6fab90665abc3d3c4ed2cb240c0d718fce8566a701970d3d2b2af",
+      "bytes": 58410
+    },
+    {
+      "path": "experiments/observed_rivers/backtests/mississippi_seed42.csv",
+      "sha256": "ebfea6810f98d98cd20f8acfda96f40f86c51935c8d539d82df090c623110f9b",
+      "bytes": 48849
+    },
+    {
+      "path": "experiments/observed_rivers/backtests/mississippi_seed43.csv",
+      "sha256": "3d40c8b68e2f6437f99f3cd79e12272b24ad7f536b45e1e41f490d01a76eec02",
+      "bytes": 48831
+    },
+    {
+      "path": "experiments/observed_rivers/backtests/mississippi_seed44.csv",
+      "sha256": "6801be74d9502da141004506b62121678b70f37c879a9fa1144f5b828e1f3eeb",
+      "bytes": 48832
+    },
+    {
+      "path": "experiments/observed_rivers/backtests/yellow_river_ensemble.csv",
+      "sha256": "e04c51d187b5460b09ab564da84db62ea912d77d7ad5f2f31e1cd261f6585746",
+      "bytes": 51328
+    },
+    {
+      "path": "experiments/observed_rivers/backtests/yellow_river_seed42.csv",
+      "sha256": "62fbd4b0596b7c4d1f45ced2c232567a5a42ac0ff0fae9b5c18c4ac1c57f7e0c",
+      "bytes": 45366
+    },
+    {
+      "path": "experiments/observed_rivers/backtests/yellow_river_seed43.csv",
+      "sha256": "1b7744d13f98d587ce3337a77b35e762556f4ecc9710376160e4295a97763b4a",
+      "bytes": 45371
+    },
+    {
+      "path": "experiments/observed_rivers/backtests/yellow_river_seed44.csv",
+      "sha256": "2b88376eb91331df92b3acf93a3229ca34d5540c348902c62118f6052091ad58",
+      "bytes": 45376
+    },
+    {
+      "path": "experiments/observed_rivers/data/mississippi.csv",
+      "sha256": "8c20d1d95c80fd6440cbcab8bd3a6ff82d96ce53478d874b02f520098d910672",
+      "bytes": 168635
+    },
+    {
+      "path": "experiments/observed_rivers/data/yellow_river.csv",
+      "sha256": "0f020be27576e40803be07dec65cccd7d067621fe802b3d22b3d401bd36a2892",
+      "bytes": 133564
+    },
+    {
+      "path": "experiments/observed_rivers/forecasts/mississippi_ensemble.csv",
+      "sha256": "679e96ff57df2cc5c986dde37859ee68f310e621251dd687feaaccba50f2967d",
+      "bytes": 902
+    },
+    {
+      "path": "experiments/observed_rivers/forecasts/mississippi_seed42.csv",
+      "sha256": "3e05174b62e9d03271a7aa8e886af981772496793e4200791a28c1857f4bb965",
+      "bytes": 794
+    },
+    {
+      "path": "experiments/observed_rivers/forecasts/mississippi_seed43.csv",
+      "sha256": "0ed28a5818599ee5d63d598e1c0380f0462780e73edecf77a01c2ab138a82e57",
+      "bytes": 796
+    },
+    {
+      "path": "experiments/observed_rivers/forecasts/mississippi_seed44.csv",
+      "sha256": "c909ad678b3375ff5b3dd19acc9f224c3467cb384aa9badf90206d8f275c5a7d",
+      "bytes": 793
+    },
+    {
+      "path": "experiments/observed_rivers/forecasts/yellow_river_ensemble.csv",
+      "sha256": "b1dedf9da1550b1e761a1fc168b0994dba8d3b9ba4c01921168a35e867a9fa76",
+      "bytes": 908
+    },
+    {
+      "path": "experiments/observed_rivers/forecasts/yellow_river_seed42.csv",
+      "sha256": "bd0cd84bda349506b6a0074d7c0c8fe5a4dd7c82cd40f6627ec0eb72988c5c23",
+      "bytes": 795
+    },
+    {
+      "path": "experiments/observed_rivers/forecasts/yellow_river_seed43.csv",
+      "sha256": "ecaf9b7441a731cd2c1c53472af4122a922053af4aef8bfa4e03858f09bd0a42",
+      "bytes": 796
+    },
+    {
+      "path": "experiments/observed_rivers/forecasts/yellow_river_seed44.csv",
+      "sha256": "63d326b741754b479bcc2a7b31a8693db0aac4225b9da46fa3b82bfdc156f617",
+      "bytes": 797
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_gru_seed42.pt",
+      "sha256": "ab0493cf905aa0b66ecb8804e15220c7cf2b36031188f76a1294c03f759fcbb0",
+      "bytes": 11017
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_gru_seed43.pt",
+      "sha256": "35f7d2675f4d9c62eb38fe5252d6b8affeed382572f9bc325014a23ad571a9fd",
+      "bytes": 11017
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_gru_seed44.pt",
+      "sha256": "2d6cc722caf72ed88aa29b4716f4dd8c017109442b71ec944fcbc22647f001ed",
+      "bytes": 11017
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_fine_tuned_seed42.pt",
+      "sha256": "b2d53aa079856b67d3ef499166da02691fded385ccf04691c7009a8d984fb2a5",
+      "bytes": 12381
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_fine_tuned_seed43.pt",
+      "sha256": "a6b803283b104cfc6b4bfe44fd3d7be5925ce63fa2432aff283dba3c25620444",
+      "bytes": 12381
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_fine_tuned_seed44.pt",
+      "sha256": "1aa269fbe23abee7cb39e5ed1a5ee807a0f466e0a9b70091a8fdee9dba3e0ba8",
+      "bytes": 12381
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_target_only_seed42.pt",
+      "sha256": "50c573731e07bad84670224033652e98d74a63c546ca258a8ded4593a67e2824",
+      "bytes": 12393
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_target_only_seed43.pt",
+      "sha256": "ca6bb82d765ded85294a6b3fd1fad0d8ab4dfbcaacf98dfe38491143b96709ed",
+      "bytes": 12393
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_target_only_seed44.pt",
+      "sha256": "b803e9b1eb07b9bff77bca4779bdc4ae05356f460e9273f06ccda41a714347dc",
+      "bytes": 12393
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_zero_shot_seed42.pt",
+      "sha256": "0ed8b4cc99f8f9304a7e28963179adb02d076edfb99a06255911daad15bb5924",
+      "bytes": 10321
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_zero_shot_seed43.pt",
+      "sha256": "d07932db5bb11f9679101612e391545fe100ed2e0e98094acc6f7569d5e157d0",
+      "bytes": 10321
+    },
+    {
+      "path": "experiments/observed_rivers/models/mississippi_to_yellow_river_zero_shot_seed44.pt",
+      "sha256": "47eec1f5407b0d6f435851fc1fc25ccd0c2b00892243a571094a49d0c549f92f",
+      "bytes": 10321
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_gru_seed42.pt",
+      "sha256": "031480022340e3a23fe1c52bad0ec17dbfa6018d4c4219b22a7db517cecc2c36",
+      "bytes": 11029
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_gru_seed43.pt",
+      "sha256": "974af2d58e432cfb1aba77cd6a3f4b756ebd51e4a2f1261e0e6d3cf2fdf8b417",
+      "bytes": 11029
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_gru_seed44.pt",
+      "sha256": "7935506edfe375ea68335ec9d31118859b0e71effd04680bb970bc7a9c14c4f6",
+      "bytes": 11029
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_fine_tuned_seed42.pt",
+      "sha256": "ae37cea541799913304f48cc73f6eaab886374f75188c5b054cd561fd6bc45f8",
+      "bytes": 12381
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_fine_tuned_seed43.pt",
+      "sha256": "b1a40f797b71f0e9d02cb2db88387522d81ef1bbd043ff4875cf0d2d02d3d20f",
+      "bytes": 12381
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_fine_tuned_seed44.pt",
+      "sha256": "ebbcc198b6873a9b7403cb85bbc481e5ca796ba3b9c2d546956fdaaa743451c1",
+      "bytes": 12381
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_target_only_seed42.pt",
+      "sha256": "7ff165d9efc81f88652c589f4cb7bdedb44f7f38cc434a9db65199c73a3cced6",
+      "bytes": 12393
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_target_only_seed43.pt",
+      "sha256": "4d169d44a61c19f6566112803ec02523c7c36562f9d2ba667937d0e906bb6c4a",
+      "bytes": 12393
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_target_only_seed44.pt",
+      "sha256": "98d72292914c18746c5cff3104864c78da07b413e74e7690081512c28df7166f",
+      "bytes": 12393
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_zero_shot_seed42.pt",
+      "sha256": "6748571d5d5dccc1ee632edf84acfb6b6be21f2ec15504082479dc6f380fb0a5",
+      "bytes": 10321
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_zero_shot_seed43.pt",
+      "sha256": "2b6a58cb938b4443d29bdad818a295c654dcc7029e243b491e3811e780cb102c",
+      "bytes": 10321
+    },
+    {
+      "path": "experiments/observed_rivers/models/yellow_river_to_mississippi_zero_shot_seed44.pt",
+      "sha256": "b8d29bb69ec98aa558613cc51b89e84c7280c5be807564f933172631930b1f3f",
+      "bytes": 10321
+    },
+    {
+      "path": "experiments/observed_rivers/protocol.json",
+      "sha256": "5af86c7c373f2ee4c345f80304d4cb49f330a4ffc03e213f23e2b89d5e3114dd",
+      "bytes": 2402
+    },
+    {
+      "path": "experiments/observed_rivers/provenance.json",
+      "sha256": "ca8242903b88eef88b7f48464bf86750735365d7f1ec148471ba542d4cc8e6c9",
+      "bytes": 4030
+    },
+    {
+      "path": "experiments/observed_rivers/raw/lijin_daily_2015_2021.xlsx",
+      "sha256": "3289060e9c53d7afa7ab9c68993aad1b713985a4a39cfbb745bcba940de12924",
+      "bytes": 70966
+    },
+    {
+      "path": "experiments/observed_rivers/raw/usgs_st_louis_daily.json",
+      "sha256": "017d5b1b709acf68199f555b00b6ee815e8df2c39b18d121895d9fc1b50da55e",
+      "bytes": 1680417
+    },
+    {
+      "path": "experiments/observed_rivers/results.json",
+      "sha256": "3a052bc6aa55d051468a9cb7ece8515bd1cff87c93d4a4140f2c1474f8a1bc95",
+      "bytes": 969837
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_fine_tuned_seed42.csv",
+      "sha256": "ffe28453f10197ae662fd7bbef80121950f92ab62bba9ccdaa742b30169178d5",
+      "bytes": 48064
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_fine_tuned_seed43.csv",
+      "sha256": "0b20ebcf49fc632033aa8041c31928400f717082de1dd579ad7e11f1211e38f0",
+      "bytes": 48051
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_fine_tuned_seed44.csv",
+      "sha256": "76f29b50b4368dc64b091ec042492a682cfd853cdf87352fa09ab6e8cc8c8584",
+      "bytes": 48053
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_persistence_seed42.csv",
+      "sha256": "678b4e85eac71fa805c201e8d50bc811167749b3047563f21d59cd3b3bd6258f",
+      "bytes": 43878
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_persistence_seed43.csv",
+      "sha256": "8aed1db037a6b86b022e525db6db4668f620e2f9aecc786d745538f8617e923d",
+      "bytes": 43878
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_persistence_seed44.csv",
+      "sha256": "241e3e223e0a911e35598a748b7046272e1138d600960c922bdb293794445db8",
+      "bytes": 43878
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_seed42.csv",
+      "sha256": "4424b3828ecc4f37618f54802cefd5a44b8c9c7ab822b11c8c3b4e3241b567cb",
+      "bytes": 30422
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_target_only_seed42.csv",
+      "sha256": "48fbac2e2a0097bf090813baf1e2fc82f594f3d406008aa3ac3e8981733e9469",
+      "bytes": 48437
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_target_only_seed43.csv",
+      "sha256": "db9432807d4ee5df6587e88fd1c1eff1e2fb11455a07d848a9dd629d5e25dd9d",
+      "bytes": 48461
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_target_only_seed44.csv",
+      "sha256": "37a54ed56f120f7c4245d2bcbfb72b03696c152f2e3628d79b9cf091372ace02",
+      "bytes": 48439
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_zero_shot_seed42.csv",
+      "sha256": "48578062e9e0848b645619cdf3f1366878a68eaa3a0d6c111446319b917e5028",
+      "bytes": 47669
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_zero_shot_seed43.csv",
+      "sha256": "7f47089516745f5854eedbd31cc29d6485280fb80f6f86c1db38d30206eb33a9",
+      "bytes": 47676
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/mississippi_to_yellow_river_zero_shot_seed44.csv",
+      "sha256": "7d79752dbfca550b7425bd372a278a7eefd6f0686f49748fc3544d2e4349ba3f",
+      "bytes": 47672
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_fine_tuned_seed42.csv",
+      "sha256": "06af6ad510fd9246efedb5fd0325525bf18931ec24b7c08c68a8d94f190dc67e",
+      "bytes": 51532
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_fine_tuned_seed43.csv",
+      "sha256": "196ee0503900a81abdcdfff863805de509dc3da28dc70155007f8b4a6ef692d8",
+      "bytes": 51520
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_fine_tuned_seed44.csv",
+      "sha256": "ae41c5f56b7ad711eb3345e5ba4699e023f207222add7203c8d19c673a5d9b90",
+      "bytes": 51523
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_persistence_seed42.csv",
+      "sha256": "5617657a1f1f8cd3aaf661ac8f2954fea4d9db6bc80bc8fa80e4fe7d30ef9379",
+      "bytes": 51142
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_persistence_seed43.csv",
+      "sha256": "a0bdb70a1687b32137d5701aa19e6997ea5db72ccd815001336570937ac5c8fa",
+      "bytes": 51142
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_persistence_seed44.csv",
+      "sha256": "f6e10f1bd20484a69904b43b25f593f9d7e7f1b8bb3f7301b66c462447eb51d2",
+      "bytes": 51142
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_seed42.csv",
+      "sha256": "1fec7db8b842536edfb390a22b26c34667d28528e7e921775ee6f8f7c84fde3b",
+      "bytes": 37574
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_target_only_seed42.csv",
+      "sha256": "83b199b70b557ee75e4bf93a6a97feb9731337fdc2aba910e5891082d25e2bd3",
+      "bytes": 51919
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_target_only_seed43.csv",
+      "sha256": "d939998c04e8ce6d45f0b9075f8931da928b51708648ec14edc210f090d505b3",
+      "bytes": 51900
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_target_only_seed44.csv",
+      "sha256": "c494f83af9e78fc66bfc48851725142f69257b61c1c4ec2fbb8d21b8f7d20fd9",
+      "bytes": 51910
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_zero_shot_seed42.csv",
+      "sha256": "22b36dcf0fec0d313b6d1f0e80e9bc66d6f717ed8c4effa2a33f8a684d630a3a",
+      "bytes": 51140
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_zero_shot_seed43.csv",
+      "sha256": "a9790a8c2f6e2855585c4993f9161802262f0ce34098fa2709d078cd28c8e681",
+      "bytes": 51154
+    },
+    {
+      "path": "experiments/observed_rivers/transfer/yellow_river_to_mississippi_zero_shot_seed44.csv",
+      "sha256": "3b3c8320092f383328dd1fd725c5e7f788547e6d2b0b0469cdf3c9f6c2ced84e",
+      "bytes": 51162
+    },
+    {
+      "path": "experiments/observed_rivers/website_data.json",
+      "sha256": "3a052bc6aa55d051468a9cb7ece8515bd1cff87c93d4a4140f2c1474f8a1bc95",
+      "bytes": 969837
+    }
+  ],
+  "source_hashes": {
+    "yellow_river": "3289060e9c53d7afa7ab9c68993aad1b713985a4a39cfbb745bcba940de12924",
+    "mississippi": "017d5b1b709acf68199f555b00b6ee815e8df2c39b18d121895d9fc1b50da55e"
+  }
+}

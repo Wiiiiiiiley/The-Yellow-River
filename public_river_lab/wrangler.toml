@@ -1,0 +1,4 @@
+# Match this name to the Cloudflare Pages project you create or select.
+name = "the-yellow-river"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-10-11"

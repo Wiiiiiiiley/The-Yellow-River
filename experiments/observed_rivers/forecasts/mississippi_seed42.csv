@@ -1,0 +1,7 @@
+date,origin_date,lead_days,unit,method,seed,prediction,observed,prediction_status,input_source_status,evaluation
+2022-01-01,2021-12-31,1,m³/s,gru,42,3417.6138595360208,,model_prediction,observed,recursive_historical_extension
+2022-01-02,2021-12-31,2,m³/s,gru,42,3473.900570700818,,model_prediction,observed,recursive_historical_extension
+2022-01-03,2021-12-31,3,m³/s,gru,42,3529.776805480278,,model_prediction,observed,recursive_historical_extension
+2022-01-04,2021-12-31,4,m³/s,gru,42,3590.2968964325173,,model_prediction,observed,recursive_historical_extension
+2022-01-05,2021-12-31,5,m³/s,gru,42,3654.441767518206,,model_prediction,observed,recursive_historical_extension
+2022-01-06,2021-12-31,6,m³/s,gru,42,3720.7835082182182,,model_prediction,observed,recursive_historical_extension

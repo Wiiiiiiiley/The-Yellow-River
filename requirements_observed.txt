@@ -1,0 +1,3 @@
+# Minimal dependencies for the observed two-station model release.
+numpy>=1.24
+torch>=2.0

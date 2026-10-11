@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "data_status": "observed",
+  "model_status": "trained_observed_daily",
+  "snapshot_date": "2026-10-10",
+  "common_period": {
+    "start": "2015-01-01",
+    "end": "2021-12-31"
+  },
+  "sources": [
+    {
+      "river_id": "yellow_river",
+      "river_name": "黄河",
+      "station": "利津站",
+      "author": "Tao Li",
+      "title": "Daily mean discharge and suspended sediment concentration from 2015 to 2021 at Lijin station",
+      "url": "https://data.mendeley.com/datasets/vskktt3v3k/1",
+      "doi": "10.17632/vskktt3v3k.1",
+      "original_source": "Chinese Hydrological Yearbook, as attributed by the archive author",
+      "download_url": "https://data.mendeley.com/public-files/datasets/vskktt3v3k/files/9e7463ae-9b41-4778-9832-d7011b6351b0/file_downloaded",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "redistribution_allowed": true,
+      "frequency": "daily",
+      "discharge_units": "m³/s",
+      "raw_file": "experiments/observed_rivers/raw/lijin_daily_2015_2021.xlsx",
+      "raw_sha256": "3289060e9c53d7afa7ab9c68993aad1b713985a4a39cfbb745bcba940de12924",
+      "raw_observations": 2558,
+      "raw_period": {
+        "start": "2015-01-01",
+        "end": "2022-01-01"
+      },
+      "observations_in_common_period": 2557,
+      "modifications": "None; original XLSX retained byte-for-byte. The common-period count excludes the extra 2022-01-01 record without altering the file.",
+      "daily_definition": "Source calendar date labels retained. The workbook does not specify its civil-day timezone convention.",
+      "quality_note": "No per-record instrument-quality flags are supplied in the workbook. Public archiving is not independent validation of the original measurements."
+    },
+    {
+      "river_id": "mississippi",
+      "river_name": "密西西比河",
+      "station": "Mississippi River at St. Louis, MO",
+      "station_id": "USGS-07010000",
+      "author": "U.S. Geological Survey",
+      "url": "https://waterdata.usgs.gov/monitoring-location/USGS-07010000",
+      "api_url": "https://api.waterdata.usgs.gov/ogcapi/v1/?f=html",
+      "download_url": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/daily/items?monitoring_location_id=USGS-07010000&parameter_code=00060&statistic_id=00003&datetime=2015-01-01/2021-12-31&limit=10000&f=json",
+      "license": "US Government work in the public domain",
+      "license_url": "https://api.waterdata.usgs.gov/ogcapi/v1/?f=html",
+      "redistribution_allowed": true,
+      "frequency": "daily",
+      "parameter_code": "00060",
+      "statistic_id": "00003",
+      "discharge_units": "ft³/s",
+      "conversion_to_m3_s": 0.028316846592,
+      "raw_file": "experiments/observed_rivers/raw/usgs_st_louis_daily.json",
+      "raw_sha256": "017d5b1b709acf68199f555b00b6ee815e8df2c39b18d121895d9fc1b50da55e",
+      "raw_observations": 2557,
+      "raw_period": {
+        "start": "2015-01-01",
+        "end": "2021-12-31"
+      },
+      "observations_in_common_period": 2557,
+      "approval_status_counts": {
+        "Approved": 2557
+      },
+      "quality_flag_counts": {
+        "ESTIMATED": 39,
+        "EQUIP": 15,
+        "FORCEINTERPOLATION": 2
+      },
+      "records_with_quality_flags": 41,
+      "modifications": "None; the downloaded API response and native ft³/s values are retained. The conversion factor is documented, not applied to the downloadable original file.",
+      "daily_definition": "USGS daily mean (statistic 00003); original calendar date labels retained, not interpreted as simultaneous UTC instantaneous observations.",
+      "quality_note": "39 days estimated, including 15 also equipment-flagged; 2 provider-interpolated days. No project interpolation, imputation or generated observations."
+    }
+  ],
+  "publication_note": "Real daily discharge models for Lijin and St. Louis only. Legacy synthetic experiments are not used by this site. Forecasts extend a historical cutoff and are not live operational forecasts."
+}
