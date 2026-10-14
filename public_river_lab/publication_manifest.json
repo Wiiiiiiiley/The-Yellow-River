@@ -29,8 +29,8 @@
       "sha256": "20d9641a1c4feb4295d01dabf2fb3bf18c5ad65f3502e43f72166baab8a5b356"
     },
     "docs/publishing_guide.md": {
-      "bytes": 3231,
-      "sha256": "ab5acd84a2a7f48eb4bb3c1d368f67394aaf19dfde4973b4024702c1c09c2a35"
+      "bytes": 3521,
+      "sha256": "712bb0674cfb07877bace67d644acff971ab5bfc9d16c032b1dba44d3069017f"
     },
     "docs/river_comparative_study.md": {
       "bytes": 23078,
@@ -385,8 +385,8 @@
       "sha256": "efd3b2bb529800b05179ac0f384ac0e4bf63b5f5226830eb5013d3b6253232f8"
     },
     "tests/test_source_only_site.py": {
-      "bytes": 19119,
-      "sha256": "8192ed5df158a9223bbc91c0b4fc54a0fd30960c6c91f5b51a0afe758d26b198"
+      "bytes": 19570,
+      "sha256": "fd6806d4fd87160f33247acc9924ff7733773bdda91001aeef3f1006f3fd5f54"
     },
     "website/app.js": {
       "bytes": 5213,
@@ -397,8 +397,8 @@
       "sha256": "d5431d0ba48f49d9823c28a03ee638dabbf0afb4bf7e93d0ab268489005e6974"
     },
     "website/index.html": {
-      "bytes": 36522,
-      "sha256": "a0e106d4b14027760daa3b00975e63b9d7f9f424a91939e89b218db444eacd3a"
+      "bytes": 36138,
+      "sha256": "3b0f2b8854fecd8bae94aa1b31b649c68c2253740a6be167de7d23d38db6f0ed"
     },
     "website/styles.css": {
       "bytes": 20853,

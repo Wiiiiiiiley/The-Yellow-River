@@ -119,18 +119,14 @@ class ObservedModelSiteTests(unittest.TestCase):
                 encoding='utf-8', newline='') as source:
             return list(csv.DictReader(source))
 
-    def assert_forecast_downloads(self, bundle, page):
+    def assert_preserved_forecast_artifacts(self, bundle, page):
         parser = LinkParser()
         parser.feed(page.read_text(encoding='utf-8'))
         for river in ['yellow_river', 'mississippi']:
             relative = f'experiments/observed_rivers/forecasts/{river}_seed42.csv'
             links = [value for value in parser.links if urlsplit(value).path.endswith(relative)]
-            self.assertEqual(len(links), 1, relative)
-            parts = urlsplit(links[0])
-            path = unquote(parts.path)
-            target = (bundle / path.lstrip('/')) if path.startswith('/') else (page.parent / path)
-            self.assertEqual(target.resolve(), (bundle / relative).resolve())
-            self.assertEqual(target.read_bytes(), (ROOT / relative).read_bytes())
+            self.assertEqual(links, [], 'Forecast CSV buttons should not be shown.')
+            self.assertEqual((bundle / relative).read_bytes(), (ROOT / relative).read_bytes())
 
     def test_reviewed_original_archives(self):
         data = json.loads((ROOT / 'experiments/observed_rivers/provenance.json').read_text())
@@ -238,7 +234,7 @@ class ObservedModelSiteTests(unittest.TestCase):
                     self.assertIsNone(asset_row['observed'])
                     self.assertEqual(float(row['prediction']), asset_row['predictions_by_seed']['42'])
 
-    def test_two_river_forecasts_are_readable_without_javascript(self):
+    def test_2027_scenario_reuses_historical_forecasts_without_javascript(self):
         document = ElementParser((ROOT / 'website/index.html').read_text(encoding='utf-8')).root
         prediction = document.find('section', id='prediction')
         self.assertEqual(len(prediction), 1)
@@ -247,13 +243,13 @@ class ObservedModelSiteTests(unittest.TestCase):
         panel = panels[0]
         self.assertIn('forecast-panel', panel.attrs.get('class', '').split())
         text = ' '.join(panel.text().split())
-        self.assertRegex(text.lower(), r'\bsaved\b.*\bforecast\b')
-        self.assertRegex(text, r'1[–-]6 January 2022')
-        self.assertIn('31 December 2021', text)
+        self.assertIn('2027 SCENARIO', text)
+        self.assertRegex(text, r'1[–-]6 January 2027')
         self.assertIn('m³/s', text)
-        self.assertIn('historical', text.lower())
-        self.assertRegex(text.lower(), r'\bnot\b[^.]{0,60}\blive forecast\b')
-        self.assertRegex(text.lower(), r'\bnot observed\b')
+        self.assertIn('Illustrative daily mean discharge', text)
+        self.assertEqual(panel.find(id='forecast-note'), [])
+        self.assertEqual(panel.with_class('forecast-footer'), [])
+        self.assertNotIn('2022 output CSV', text)
         self.assertNotIn('hidden', panel.attrs)
         tables = panel.with_class('forecast-table')
         self.assertEqual(len(tables), 1)
@@ -269,7 +265,6 @@ class ObservedModelSiteTests(unittest.TestCase):
         caption_text = ' '.join(node.text() for node in table.find('caption'))
         self.assertIn('m³/s', caption_text)
         descriptions = table.attrs.get('aria-describedby', '').split()
-        self.assertTrue(descriptions)
         for identifier in descriptions:
             self.assertEqual(len(panel.find(id=identifier)), 1)
         bodies = table.find('tbody')
@@ -280,7 +275,9 @@ class ObservedModelSiteTests(unittest.TestCase):
         for index, row in enumerate(rows):
             date = expected['yellow_river'][index]['date']
             self.assertEqual(row.attrs.get('data-forecast-date'), date)
-            times = row.find('time', datetime=date)
+            scenario_date = f'2027-01-{index + 1:02d}'
+            self.assertEqual(row.attrs.get('data-scenario-date'), scenario_date)
+            times = row.find('time', datetime=scenario_date)
             self.assertEqual(len(times), 1)
             self.assertTrue(times[0].text().strip())
             for river in expected:
@@ -289,8 +286,7 @@ class ObservedModelSiteTests(unittest.TestCase):
                 self.assertEqual(cells[0].text().strip(), f"{float(expected[river][index]['prediction']):,.1f}")
         for river in expected:
             links = panel.find('a', href=f'../experiments/observed_rivers/forecasts/{river}_seed42.csv')
-            self.assertEqual(len(links), 1)
-            self.assertIn('download', links[0].attrs)
+            self.assertEqual(links, [])
 
     def test_presentation_and_chart_are_fully_english(self):
         for relative in ['website/index.html', 'cloudflare/404.html']:
@@ -351,7 +347,7 @@ class ObservedModelSiteTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(file.read_bytes()).hexdigest(), entry['sha256'])
             parser = LinkParser()
             parser.feed((bundle / 'website/index.html').read_text())
-            self.assert_forecast_downloads(bundle, bundle / 'website/index.html')
+            self.assert_preserved_forecast_artifacts(bundle, bundle / 'website/index.html')
             for value in parser.links:
                 parts = urlsplit(value)
                 if not parts.scheme and not parts.netloc and parts.path:
@@ -359,7 +355,7 @@ class ObservedModelSiteTests(unittest.TestCase):
             failed = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/export_river_site.py'), '--output', str(bundle)], capture_output=True)
             self.assertNotEqual(failed.returncode, 0)
 
-    def test_cloudflare_pages_exports_forecast_table_and_csv_downloads(self):
+    def test_cloudflare_pages_exports_scenario_without_footer_or_csv_buttons(self):
         with tempfile.TemporaryDirectory(prefix='river-forecast-pages-') as directory:
             bundle = Path(directory) / 'dist'
             subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/build_cloudflare_pages.py'),
@@ -370,7 +366,14 @@ class ObservedModelSiteTests(unittest.TestCase):
                 panels = document.find('div', id='forecast-results')
                 self.assertEqual(len(panels), 1)
                 self.assertEqual(len(panels[0].find('tbody')[0].find('tr')), 6)
-                self.assert_forecast_downloads(bundle, page)
+                self.assertIn('2027 SCENARIO', panels[0].text())
+                self.assertIn('Illustrative daily mean discharge', panels[0].text())
+                self.assertEqual(panels[0].with_class('forecast-footer'), [])
+                self.assertEqual(panels[0].find(id='forecast-note'), [])
+                for day, row in enumerate(panels[0].find('tbody')[0].find('tr'), start=1):
+                    self.assertEqual(row.attrs.get('data-scenario-date'), f'2027-01-{day:02d}')
+                    self.assertEqual(row.attrs.get('data-forecast-date'), f'2022-01-{day:02d}')
+                self.assert_preserved_forecast_artifacts(bundle, page)
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#132b3b">
-  <meta name="description" content="Compare the Yellow and Mississippi Rivers through hydrology, sediment, dams, flood risk, ecology, riverside communities, and cultural memory. View six-day flow predictions and explore open models.">
+  <meta name="description" content="Compare the Yellow and Mississippi Rivers through hydrology, sediment, dams, flood risk, ecology, riverside communities, and cultural memory. View a 2027 flow scenario and explore open models.">
   <title>Between Rivers · The Yellow River and the Mississippi</title>
   <link rel="stylesheet" href="styles.css?v=forecast-20261013">
   <script src="assets/observed_river_data.js" defer></script>
@@ -101,22 +101,21 @@
     <section class="flow-section" aria-labelledby="seasonal-title"><div class="section flow-inner"><div class="section-heading"><div><p class="eyebrow">A LOOK AT THE FLOW</p><h2 id="seasonal-title">Two rivers, seen through seasonal flow.</h2></div><p id="flow-period">Lijin and St. Louis stations · 2015–2021</p></div><p id="flow-error" class="flow-error" role="status">The flow chart has not loaded. The comparison and resource downloads are still available.</p><div id="flow-content" class="flow-workspace" hidden><div class="seasonal-chart-panel"><svg id="seasonal-chart" role="img" aria-labelledby="seasonal-title seasonal-description"><desc id="seasonal-description"></desc></svg><div class="chart-legend"><span><i class="line-yellow"></i>Yellow River · Lijin</span><span><i class="line-mississippi"></i>Mississippi River · St. Louis</span></div><p class="flow-note">Each monthly mean is divided by the station's mean over the full period to compare seasonal patterns. This describes two stations, not a like-for-like ranking of entire rivers.</p></div><div class="flow-summary"><p class="eyebrow">STATION MEAN FLOW</p><h3>Mean discharge at each station</h3><div id="flow-stats"></div><div class="flow-downloads"><a href="../experiments/observed_rivers/data/yellow_river.csv" download>Yellow River CSV <span>↗</span></a><a href="../experiments/observed_rivers/data/mississippi.csv" download>Mississippi CSV <span>↗</span></a></div></div></div></div></section>
 
     <section id="prediction" class="section model-section" aria-labelledby="model-title">
-      <div class="section-heading"><div><p class="eyebrow">03 / FLOW MODELS</p><h2 id="model-title">Daily-flow models for both rivers.</h2></div><p>See the predictions, then explore the models and source code.</p></div>
+      <div class="section-heading"><div><p class="eyebrow">03 / FLOW MODELS</p><h2 id="model-title">Daily-flow models for both rivers.</h2></div><p>Explore a flow scenario, then the models and source code.</p></div>
       <div id="forecast-results" class="forecast-panel" aria-labelledby="forecast-title">
-        <div class="forecast-heading"><div><p class="eyebrow">SAVED MODEL FORECAST</p><h3 id="forecast-title">Six-day discharge forecast</h3></div><p>1–6 January 2022</p></div>
-        <table class="forecast-table" aria-describedby="forecast-note">
-          <caption>Predicted daily mean discharge · m³/s</caption>
+        <div class="forecast-heading"><div><p class="eyebrow">2027 SCENARIO</p><h3 id="forecast-title">Six-day discharge scenario</h3></div><p>1–6 January 2027</p></div>
+        <table class="forecast-table">
+          <caption>Illustrative daily mean discharge · m³/s</caption>
           <thead><tr><th scope="col">Date</th><th scope="col" class="forecast-yellow">Yellow River<span class="forecast-station">Lijin station</span></th><th scope="col" class="forecast-mississippi">Mississippi River<span class="forecast-station">St. Louis station</span></th></tr></thead>
           <tbody>
-            <tr data-forecast-date="2022-01-01"><th scope="row"><time datetime="2022-01-01">1 Jan</time></th><td data-river="yellow_river">1,151.3</td><td data-river="mississippi">3,417.6</td></tr>
-            <tr data-forecast-date="2022-01-02"><th scope="row"><time datetime="2022-01-02">2 Jan</time></th><td data-river="yellow_river">1,199.6</td><td data-river="mississippi">3,473.9</td></tr>
-            <tr data-forecast-date="2022-01-03"><th scope="row"><time datetime="2022-01-03">3 Jan</time></th><td data-river="yellow_river">1,250.2</td><td data-river="mississippi">3,529.8</td></tr>
-            <tr data-forecast-date="2022-01-04"><th scope="row"><time datetime="2022-01-04">4 Jan</time></th><td data-river="yellow_river">1,300.9</td><td data-river="mississippi">3,590.3</td></tr>
-            <tr data-forecast-date="2022-01-05"><th scope="row"><time datetime="2022-01-05">5 Jan</time></th><td data-river="yellow_river">1,354.3</td><td data-river="mississippi">3,654.4</td></tr>
-            <tr data-forecast-date="2022-01-06"><th scope="row"><time datetime="2022-01-06">6 Jan</time></th><td data-river="yellow_river">1,411.2</td><td data-river="mississippi">3,720.8</td></tr>
+            <tr data-scenario-date="2027-01-01" data-forecast-date="2022-01-01"><th scope="row"><time datetime="2027-01-01">1 Jan</time></th><td data-river="yellow_river">1,151.3</td><td data-river="mississippi">3,417.6</td></tr>
+            <tr data-scenario-date="2027-01-02" data-forecast-date="2022-01-02"><th scope="row"><time datetime="2027-01-02">2 Jan</time></th><td data-river="yellow_river">1,199.6</td><td data-river="mississippi">3,473.9</td></tr>
+            <tr data-scenario-date="2027-01-03" data-forecast-date="2022-01-03"><th scope="row"><time datetime="2027-01-03">3 Jan</time></th><td data-river="yellow_river">1,250.2</td><td data-river="mississippi">3,529.8</td></tr>
+            <tr data-scenario-date="2027-01-04" data-forecast-date="2022-01-04"><th scope="row"><time datetime="2027-01-04">4 Jan</time></th><td data-river="yellow_river">1,300.9</td><td data-river="mississippi">3,590.3</td></tr>
+            <tr data-scenario-date="2027-01-05" data-forecast-date="2022-01-05"><th scope="row"><time datetime="2027-01-05">5 Jan</time></th><td data-river="yellow_river">1,354.3</td><td data-river="mississippi">3,654.4</td></tr>
+            <tr data-scenario-date="2027-01-06" data-forecast-date="2022-01-06"><th scope="row"><time datetime="2027-01-06">6 Jan</time></th><td data-river="yellow_river">1,411.2</td><td data-river="mississippi">3,720.8</td></tr>
           </tbody>
         </table>
-        <div class="forecast-footer"><p id="forecast-note">Forecast origin: 31 December 2021. Historical predictions from the downloadable models, not observed values or a live forecast.</p><div class="forecast-downloads"><a href="../experiments/observed_rivers/forecasts/yellow_river_seed42.csv" download>Yellow River forecast CSV <span aria-hidden="true">↗</span></a><a href="../experiments/observed_rivers/forecasts/mississippi_seed42.csv" download>Mississippi forecast CSV <span aria-hidden="true">↗</span></a></div></div>
       </div>
       <div class="model-grid"><article class="model-card"><div><p class="eyebrow">YELLOW RIVER</p><h3>Yellow River model</h3><p>Lijin station · daily discharge</p></div><a href="../experiments/observed_rivers/models/yellow_river_gru_seed42.pt" download>Download model <span aria-hidden="true">↗</span></a></article><article class="model-card"><div><p class="eyebrow">MISSISSIPPI RIVER</p><h3>Mississippi model</h3><p>St. Louis station · daily discharge</p></div><a href="../experiments/observed_rivers/models/mississippi_gru_seed42.pt" download>Download model <span aria-hidden="true">↗</span></a></article></div>
       <div class="model-links"><a href="../src/models/observed_rivers.py" download>Source code ↗</a><a href="../docs/observed_model_study.md">Model notes ↗</a><a href="../LICENSE.observed-models">Model &amp; code license ↗</a></div>
