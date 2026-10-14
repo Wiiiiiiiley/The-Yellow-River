@@ -1,4 +1,5 @@
 """Regression checks for the observed two-station model publication."""
+import csv
 import hashlib
 import json
 import re
@@ -57,7 +58,80 @@ class LinkParser(HTMLParser):
         return ' '.join(self.visible_text)
 
 
+class PageElement:
+    """Small HTML tree for checking scoped, server-rendered publication content."""
+    def __init__(self, tag, attrs=()):
+        self.tag = tag
+        self.attrs = dict(attrs)
+        self.children = []
+
+    def text(self):
+        return ' '.join(child.text() if isinstance(child, PageElement) else child
+                        for child in self.children)
+
+    def find(self, tag=None, **attrs):
+        found = []
+        for child in self.children:
+            if not isinstance(child, PageElement):
+                continue
+            if (tag is None or child.tag == tag) and all(
+                    child.attrs.get(key) == value for key, value in attrs.items()):
+                found.append(child)
+            found.extend(child.find(tag, **attrs))
+        return found
+
+    def with_class(self, name):
+        return [node for node in self.find() if name in node.attrs.get('class', '').split()]
+
+
+class ElementParser(HTMLParser):
+    VOID_TAGS = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+                 'link', 'meta', 'param', 'source', 'track', 'wbr'}
+
+    def __init__(self, html):
+        super().__init__()
+        self.root = PageElement('document')
+        self.stack = [self.root]
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        node = PageElement(tag, attrs)
+        self.stack[-1].children.append(node)
+        if tag not in self.VOID_TAGS:
+            self.stack.append(node)
+
+    def handle_startendtag(self, tag, attrs):
+        self.stack[-1].children.append(PageElement(tag, attrs))
+
+    def handle_endtag(self, tag):
+        for index in range(len(self.stack) - 1, 0, -1):
+            if self.stack[index].tag == tag:
+                del self.stack[index:]
+                break
+
+    def handle_data(self, data):
+        self.stack[-1].children.append(data)
+
+
 class ObservedModelSiteTests(unittest.TestCase):
+    def forecast_csv(self, river):
+        with (ROOT / f'experiments/observed_rivers/forecasts/{river}_seed42.csv').open(
+                encoding='utf-8', newline='') as source:
+            return list(csv.DictReader(source))
+
+    def assert_forecast_downloads(self, bundle, page):
+        parser = LinkParser()
+        parser.feed(page.read_text(encoding='utf-8'))
+        for river in ['yellow_river', 'mississippi']:
+            relative = f'experiments/observed_rivers/forecasts/{river}_seed42.csv'
+            links = [value for value in parser.links if urlsplit(value).path.endswith(relative)]
+            self.assertEqual(len(links), 1, relative)
+            parts = urlsplit(links[0])
+            path = unquote(parts.path)
+            target = (bundle / path.lstrip('/')) if path.startswith('/') else (page.parent / path)
+            self.assertEqual(target.resolve(), (bundle / relative).resolve())
+            self.assertEqual(target.read_bytes(), (ROOT / relative).read_bytes())
+
     def test_reviewed_original_archives(self):
         data = json.loads((ROOT / 'experiments/observed_rivers/provenance.json').read_text())
         self.assertEqual(data['data_status'], 'observed')
@@ -135,9 +209,88 @@ class ObservedModelSiteTests(unittest.TestCase):
         self.assertTrue(set(citations).issubset(set(parser.links)))
         model_section = html.split('<section id="prediction"', 1)[1].split('</section>', 1)[0]
         self.assertEqual(model_section.count('class="model-card"'), 2)
-        model_text = LinkParser()
-        model_text.feed(model_section)
-        self.assertLessEqual(len(re.findall(r"[A-Za-z0-9]+(?:['’\-][A-Za-z0-9]+)*", model_text.text())), 120)
+        model_tree = ElementParser(model_section).root
+        model_intro = model_tree.with_class('model-grid') + model_tree.with_class('model-links')
+        self.assertEqual(len(model_intro), 2)
+        model_text = ' '.join(node.text() for node in model_intro)
+        self.assertLessEqual(len(re.findall(r"[A-Za-z0-9]+(?:['’\-][A-Za-z0-9]+)*", model_text)), 120)
+
+    def test_saved_seed42_forecasts_keep_historical_publication_context(self):
+        results = json.loads((ROOT / 'experiments/observed_rivers/website_data.json').read_text())
+        for river in ['yellow_river', 'mississippi']:
+            rows = self.forecast_csv(river)
+            self.assertEqual(len(rows), 6)
+            asset_rows = results['rivers'][river]['forecast']
+            for day, (row, asset_row) in enumerate(zip(rows, asset_rows), start=1):
+                with self.subTest(river=river, day=day):
+                    self.assertEqual(row['date'], f'2022-01-{day:02d}')
+                    self.assertEqual(row['origin_date'], '2021-12-31')
+                    self.assertEqual(row['lead_days'], str(day))
+                    self.assertEqual(row['unit'], 'm³/s')
+                    self.assertEqual(row['method'], 'gru')
+                    self.assertEqual(row['seed'], '42')
+                    self.assertEqual(row['observed'], '')
+                    self.assertEqual(row['prediction_status'], 'model_prediction')
+                    self.assertEqual(row['input_source_status'], 'observed')
+                    self.assertEqual(row['evaluation'], 'recursive_historical_extension')
+                    self.assertEqual(asset_row['date'], row['date'])
+                    self.assertEqual(asset_row['origin_date'], row['origin_date'])
+                    self.assertIsNone(asset_row['observed'])
+                    self.assertEqual(float(row['prediction']), asset_row['predictions_by_seed']['42'])
+
+    def test_two_river_forecasts_are_readable_without_javascript(self):
+        document = ElementParser((ROOT / 'website/index.html').read_text(encoding='utf-8')).root
+        prediction = document.find('section', id='prediction')
+        self.assertEqual(len(prediction), 1)
+        panels = prediction[0].find('div', id='forecast-results')
+        self.assertEqual(len(panels), 1)
+        panel = panels[0]
+        self.assertIn('forecast-panel', panel.attrs.get('class', '').split())
+        text = ' '.join(panel.text().split())
+        self.assertRegex(text.lower(), r'\bsaved\b.*\bforecast\b')
+        self.assertRegex(text, r'1[–-]6 January 2022')
+        self.assertIn('31 December 2021', text)
+        self.assertIn('m³/s', text)
+        self.assertIn('historical', text.lower())
+        self.assertRegex(text.lower(), r'\bnot\b[^.]{0,60}\blive forecast\b')
+        self.assertRegex(text.lower(), r'\bnot observed\b')
+        self.assertNotIn('hidden', panel.attrs)
+        tables = panel.with_class('forecast-table')
+        self.assertEqual(len(tables), 1)
+        table = tables[0]
+        self.assertEqual(table.tag, 'table')
+        self.assertTrue(table.find('caption') or table.attrs.get('aria-label')
+                        or table.attrs.get('aria-labelledby'), 'The table needs an accessible name.')
+        headers = table.find('th', scope='col')
+        self.assertEqual(len(headers), 3)
+        header_text = ' '.join(node.text() for node in headers)
+        for label in ['Date', 'Yellow River', 'Lijin', 'Mississippi', 'St. Louis']:
+            self.assertIn(label, header_text)
+        caption_text = ' '.join(node.text() for node in table.find('caption'))
+        self.assertIn('m³/s', caption_text)
+        descriptions = table.attrs.get('aria-describedby', '').split()
+        self.assertTrue(descriptions)
+        for identifier in descriptions:
+            self.assertEqual(len(panel.find(id=identifier)), 1)
+        bodies = table.find('tbody')
+        self.assertEqual(len(bodies), 1)
+        rows = bodies[0].find('tr')
+        self.assertEqual(len(rows), 6)
+        expected = {river: self.forecast_csv(river) for river in ['yellow_river', 'mississippi']}
+        for index, row in enumerate(rows):
+            date = expected['yellow_river'][index]['date']
+            self.assertEqual(row.attrs.get('data-forecast-date'), date)
+            times = row.find('time', datetime=date)
+            self.assertEqual(len(times), 1)
+            self.assertTrue(times[0].text().strip())
+            for river in expected:
+                cells = row.find('td', **{'data-river': river})
+                self.assertEqual(len(cells), 1)
+                self.assertEqual(cells[0].text().strip(), f"{float(expected[river][index]['prediction']):,.1f}")
+        for river in expected:
+            links = panel.find('a', href=f'../experiments/observed_rivers/forecasts/{river}_seed42.csv')
+            self.assertEqual(len(links), 1)
+            self.assertIn('download', links[0].attrs)
 
     def test_presentation_and_chart_are_fully_english(self):
         for relative in ['website/index.html', 'cloudflare/404.html']:
@@ -198,12 +351,26 @@ class ObservedModelSiteTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(file.read_bytes()).hexdigest(), entry['sha256'])
             parser = LinkParser()
             parser.feed((bundle / 'website/index.html').read_text())
+            self.assert_forecast_downloads(bundle, bundle / 'website/index.html')
             for value in parser.links:
                 parts = urlsplit(value)
                 if not parts.scheme and not parts.netloc and parts.path:
                     self.assertTrue((bundle / 'website' / unquote(parts.path)).resolve().is_file(), value)
             failed = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/export_river_site.py'), '--output', str(bundle)], capture_output=True)
             self.assertNotEqual(failed.returncode, 0)
+
+    def test_cloudflare_pages_exports_forecast_table_and_csv_downloads(self):
+        with tempfile.TemporaryDirectory(prefix='river-forecast-pages-') as directory:
+            bundle = Path(directory) / 'dist'
+            subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/build_cloudflare_pages.py'),
+                            '--output', str(bundle)], check=True, capture_output=True)
+            for relative in ['index.html', 'website/index.html']:
+                page = bundle / relative
+                document = ElementParser(page.read_text(encoding='utf-8')).root
+                panels = document.find('div', id='forecast-results')
+                self.assertEqual(len(panels), 1)
+                self.assertEqual(len(panels[0].find('tbody')[0].find('tr')), 6)
+                self.assert_forecast_downloads(bundle, page)
 
 
 if __name__ == '__main__':
