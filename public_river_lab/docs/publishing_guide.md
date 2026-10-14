@@ -4,6 +4,8 @@ The English-language website focuses on a seven-angle comparison of the Yellow a
 
 ## Local preview
 
+The scenario panel pairs its daily table with a two-river line chart. Both series share a zero-based discharge axis in m³/s; distinct colors, line styles and point shapes distinguish the stations. The chart reads its six dates and twelve values directly from the table, uses straight segments, and redraws to fit its available width. The static table remains available without JavaScript. No forecast values, model files or observation records are changed by the chart.
+
 From the project root:
 
 ```bash

@@ -114,6 +114,27 @@ class ElementParser(HTMLParser):
 
 
 class ObservedModelSiteTests(unittest.TestCase):
+    def assert_comparison_without_insights(self, bundle, page):
+        html = page.read_text(encoding='utf-8')
+        doc = (bundle / 'docs/river_comparative_study.md').read_text(encoding='utf-8')
+        self.assertNotIn('comparative insight', html.lower())
+        self.assertNotIn('comparative insight', doc.lower())
+        self.assertNotIn('learning-note', html.lower())
+        document = ElementParser(html).root
+        self.assertEqual(document.with_class('learning-note'), [])
+        cards = document.with_class('study-card')
+        self.assertEqual(len(cards), 7)
+        for card in cards:
+            pairs = card.with_class('river-pair')
+            self.assertEqual(len(pairs), 1)
+            for river_class in ['yellow-copy', 'mississippi-copy']:
+                columns = pairs[0].with_class(river_class)
+                self.assertEqual(len(columns), 1)
+                self.assertEqual(len(columns[0].find('p')), 2)
+        self.assertEqual(len(document.with_class('study-synthesis')), 1)
+        self.assertIn('## Bringing the Comparison Together:', doc)
+        self.assertEqual(len(re.findall(r'^\d+\. \[.*?\]\((https://[^)]+)\)', doc, re.M)), 20)
+
     def forecast_csv(self, river):
         with (ROOT / f'experiments/observed_rivers/forecasts/{river}_seed42.csv').open(
                 encoding='utf-8', newline='') as source:
@@ -127,6 +148,38 @@ class ObservedModelSiteTests(unittest.TestCase):
             links = [value for value in parser.links if urlsplit(value).path.endswith(relative)]
             self.assertEqual(links, [], 'Forecast CSV buttons should not be shown.')
             self.assertEqual((bundle / relative).read_bytes(), (ROOT / relative).read_bytes())
+
+    def assert_scenario_chart_scaffold(self, document):
+        panels = document.find('div', id='forecast-results')
+        self.assertEqual(len(panels), 1)
+        panel = panels[0]
+        figures = panel.with_class('forecast-chart-panel')
+        self.assertEqual(len(figures), 1)
+        figure = figures[0]
+        self.assertEqual(figure.tag, 'figure')
+        charts = figure.find('svg', id='forecast-chart')
+        self.assertEqual(len(charts), 1)
+        self.assertEqual(charts[0].attrs.get('role'), 'img')
+        self.assertEqual(charts[0].attrs.get('aria-labelledby', '').split(),
+                         ['forecast-chart-title', 'forecast-chart-description'])
+        captions = figure.find('figcaption', id='forecast-chart-title')
+        self.assertEqual(len(captions), 1)
+        self.assertRegex(' '.join(captions[0].text().split()), r'^Six-day flow trend(?: m³/s)?$')
+        descriptions = figure.find(id='forecast-chart-description')
+        self.assertEqual(len(descriptions), 1)
+        description = ' '.join(descriptions[0].text().split())
+        self.assertRegex(description.lower(), r'illustrative.*1[–-]6 january 2027')
+        for label in ['Yellow River', 'Mississippi', 'm³/s']:
+            self.assertIn(label, description)
+        legends = figure.with_class('forecast-chart-legend')
+        self.assertEqual(len(legends), 1)
+        legend = ' '.join(legends[0].text().split())
+        for label in ['Yellow River', 'Mississippi', 'Lijin', 'St. Louis']:
+            self.assertIn(label, legend)
+        self.assertIn('The daily values are listed in the table.', charts[0].text())
+        self.assertEqual(panel.with_class('forecast-footer'), [])
+        self.assertEqual(panel.find(id='forecast-note'), [])
+        self.assertEqual(panel.find('a'), [], 'The prediction panel has no forecast CSV buttons.')
 
     def test_reviewed_original_archives(self):
         data = json.loads((ROOT / 'experiments/observed_rivers/provenance.json').read_text())
@@ -211,6 +264,9 @@ class ObservedModelSiteTests(unittest.TestCase):
         model_text = ' '.join(node.text() for node in model_intro)
         self.assertLessEqual(len(re.findall(r"[A-Za-z0-9]+(?:['’\-][A-Za-z0-9]+)*", model_text)), 120)
 
+    def test_comparative_insight_blocks_removed_without_losing_river_analysis(self):
+        self.assert_comparison_without_insights(ROOT, ROOT / 'website/index.html')
+
     def test_saved_seed42_forecasts_keep_historical_publication_context(self):
         results = json.loads((ROOT / 'experiments/observed_rivers/website_data.json').read_text())
         for river in ['yellow_river', 'mississippi']:
@@ -288,6 +344,44 @@ class ObservedModelSiteTests(unittest.TestCase):
             links = panel.find('a', href=f'../experiments/observed_rivers/forecasts/{river}_seed42.csv')
             self.assertEqual(links, [])
 
+    def test_scenario_line_chart_is_accessible_and_keeps_table_fallback(self):
+        document = ElementParser((ROOT / 'website/index.html').read_text(encoding='utf-8')).root
+        self.assert_scenario_chart_scaffold(document)
+        panel = document.find('div', id='forecast-results')[0]
+        table = panel.with_class('forecast-table')[0]
+        self.assertEqual(len(table.find('tbody')[0].find('tr')), 6)
+        self.assertEqual(len(table.find('td')), 12)
+        self.assertNotIn('hidden', table.attrs)
+        self.assertNotIn('aria-hidden', table.attrs)
+
+    def test_scenario_line_chart_reads_table_independently_of_seasonal_data(self):
+        app = (ROOT / 'website/app.js').read_text(encoding='utf-8')
+        styles = (ROOT / 'website/styles.css').read_text(encoding='utf-8')
+        seasonal_dependency = app.index('window.OBSERVED_RIVERS_DATA')
+        forecast_app = app[:seasonal_dependency]
+        self.assertIn('forecast-chart', forecast_app)
+        self.assertIn('forecast-table', forecast_app)
+        self.assertIn('scenarioDate', forecast_app)
+        self.assertIn('textContent', forecast_app)
+        self.assertIn('data-river', forecast_app)
+        self.assertIn('data-forecast-series', forecast_app)
+        for attribute in ['data-forecast-river', 'data-scenario-date', 'data-discharge']:
+            self.assertIn(attribute, forecast_app)
+        for river in ['yellow_river', 'mississippi']:
+            self.assertIn(river, forecast_app)
+        for shape in ['path', 'circle', 'rect']:
+            self.assertRegex(forecast_app, r'[\"\']' + shape + r'[\"\']')
+        self.assertIn('stroke-dasharray', forecast_app + styles)
+        self.assertIn('Jan', forecast_app)
+        self.assertIn('m³/s', forecast_app)
+        self.assertIn('viewBox', forecast_app)
+        self.assertIn('resize', forecast_app)
+        self.assertNotIn('forecast_seed', forecast_app)
+        self.assertNotIn('predictions_by_seed', forecast_app)
+        self.assertNotIn('fetch(', forecast_app)
+        self.assertNotIn('2022', forecast_app)
+        self.assertRegex(forecast_app, r'\}\)\(\);\s*(?:/\*[\s\S]*?\*/\s*)?\(\(\)\s*=>')
+
     def test_presentation_and_chart_are_fully_english(self):
         for relative in ['website/index.html', 'cloudflare/404.html']:
             with self.subTest(page=relative):
@@ -347,6 +441,9 @@ class ObservedModelSiteTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(file.read_bytes()).hexdigest(), entry['sha256'])
             parser = LinkParser()
             parser.feed((bundle / 'website/index.html').read_text())
+            self.assert_comparison_without_insights(bundle, bundle / 'website/index.html')
+            self.assert_scenario_chart_scaffold(ElementParser(
+                (bundle / 'website/index.html').read_text(encoding='utf-8')).root)
             self.assert_preserved_forecast_artifacts(bundle, bundle / 'website/index.html')
             for value in parser.links:
                 parts = urlsplit(value)
@@ -362,7 +459,9 @@ class ObservedModelSiteTests(unittest.TestCase):
                             '--output', str(bundle)], check=True, capture_output=True)
             for relative in ['index.html', 'website/index.html']:
                 page = bundle / relative
+                self.assert_comparison_without_insights(bundle, page)
                 document = ElementParser(page.read_text(encoding='utf-8')).root
+                self.assert_scenario_chart_scaffold(document)
                 panels = document.find('div', id='forecast-results')
                 self.assertEqual(len(panels), 1)
                 self.assertEqual(len(panels[0].find('tbody')[0].find('tr')), 6)

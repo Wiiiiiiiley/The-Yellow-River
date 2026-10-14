@@ -1,4 +1,68 @@
-/* A small, descriptive seasonal-flow chart. The written study stands on its own. */
+/* The scenario plot reads the displayed table, keeping one source of values. */
+(() => {
+  "use strict";
+  const svg = document.getElementById("forecast-chart");
+  const rows = [...document.querySelectorAll("#forecast-results .forecast-table tbody tr")];
+  if (!svg || rows.length !== 6) return;
+  const rivers = [
+    {id:"yellow_river", name:"Yellow River", station:"Lijin", shape:"circle"},
+    {id:"mississippi", name:"Mississippi River", station:"St. Louis", shape:"rect"}
+  ];
+  const dates = rows.map((row) => row.dataset.scenarioDate);
+  if (dates.some((date) => !/^\d{4}-\d{2}-\d{2}$/.test(date || ""))) return;
+  const series = rivers.map((river) => ({...river, values:rows.map((row) => {
+    const cell = row.querySelector(`td[data-river="${river.id}"]`);
+    return cell ? Number(cell.textContent.trim().replace(/,/g, "")) : NaN;
+  })}));
+  if (series.some((river) => river.values.some((value) => !Number.isFinite(value) || value < 0))) return;
+  const node = (tag, attrs = {}, text) => {
+    const element = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, String(value)));
+    if (text !== undefined) element.textContent = text;
+    return element;
+  };
+  const format = (value) => value.toLocaleString("en-US", {minimumFractionDigits:1, maximumFractionDigits:1});
+  const description = svg.querySelector("desc").textContent;
+  function drawForecast() {
+    const width = Math.max(240, Math.round(svg.clientWidth || svg.parentElement.clientWidth || 480));
+    const height = 310, compact = width < 420;
+    const margin = {left:48, right:64, top:23, bottom:42};
+    const plotWidth = width - margin.left - margin.right, plotHeight = height - margin.top - margin.bottom;
+    const maximum = Math.max(1000, Math.ceil(Math.max(...series.flatMap((river) => river.values)) / 1000) * 1000);
+    const x = (day) => margin.left + day / (dates.length - 1) * plotWidth;
+    const y = (value) => margin.top + (1 - value / maximum) * plotHeight;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.replaceChildren(node("desc", {id:"forecast-chart-description"}, description));
+    for (let tick = 0; tick <= 4; tick++) {
+      const value = maximum * tick / 4;
+      svg.append(node("line", {x1:margin.left, x2:width-margin.right, y1:y(value), y2:y(value), class:"forecast-chart-grid"}),
+        node("text", {x:margin.left-9, y:y(value)+4, "text-anchor":"end", class:"forecast-chart-tick"}, value.toLocaleString("en-US")));
+    }
+    const ticks = compact ? [0, 2, 5] : [0, 1, 2, 3, 4, 5];
+    ticks.forEach((day) => svg.append(node("text", {x:x(day), y:height-22, "text-anchor":day===0?"start":day===5?"end":"middle", class:"forecast-chart-tick"}, `${Number(dates[day].slice(8, 10))} Jan`)));
+    svg.append(node("text", {x:margin.left, y:height-3, class:"forecast-chart-tick"}, "Scenario date · 2027"));
+    series.forEach((river) => {
+      const path = river.values.map((value, day) => `${day ? "L" : "M"}${x(day).toFixed(2)},${y(value).toFixed(2)}`).join(" ");
+      svg.append(node("path", {d:path, class:"forecast-chart-line", "data-forecast-series":river.id}));
+      river.values.forEach((value, day) => {
+        const position = river.shape === "circle" ? {cx:x(day), cy:y(value), r:3.5} : {x:x(day)-3.5, y:y(value)-3.5, width:7, height:7};
+        const point = node(river.shape, {...position, "data-forecast-river":river.id, "data-scenario-date":dates[day], "data-discharge":value});
+        point.append(node("title", {}, `${river.name} · ${river.station} · ${dates[day]}: ${format(value)} m³/s (illustrative scenario)`));
+        svg.append(point);
+      });
+      svg.append(node("text", {x:x(5)+9, y:y(river.values[5])+4, class:"forecast-chart-value"}, format(river.values[5])));
+    });
+  }
+  drawForecast();
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver(drawForecast);
+    observer.observe(svg.parentElement);
+  } else {
+    window.addEventListener("resize", drawForecast);
+  }
+})();
+
+/* A descriptive seasonal-flow chart. The written study stands on its own. */
 (() => {
   "use strict";
   const data = window.OBSERVED_RIVERS_DATA;

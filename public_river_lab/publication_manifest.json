@@ -29,12 +29,12 @@
       "sha256": "20d9641a1c4feb4295d01dabf2fb3bf18c5ad65f3502e43f72166baab8a5b356"
     },
     "docs/publishing_guide.md": {
-      "bytes": 3521,
-      "sha256": "712bb0674cfb07877bace67d644acff971ab5bfc9d16c032b1dba44d3069017f"
+      "bytes": 3993,
+      "sha256": "39256757d8c832e8d9c18e535f63b02543b6212cd2e5723867d6dfcdabc444bd"
     },
     "docs/river_comparative_study.md": {
-      "bytes": 23078,
-      "sha256": "ffb62c18f6fbe1e4199c84d66b611bafff72592ea8f45654ac9eece01672b8e9"
+      "bytes": 19788,
+      "sha256": "4b1b9a958b004b17d2e10451f41b3b7dd31bcfbae8430f33f2d20a7cbc73b67e"
     },
     "docs/website_data_status.md": {
       "bytes": 2860,
@@ -385,24 +385,24 @@
       "sha256": "efd3b2bb529800b05179ac0f384ac0e4bf63b5f5226830eb5013d3b6253232f8"
     },
     "tests/test_source_only_site.py": {
-      "bytes": 19570,
-      "sha256": "fd6806d4fd87160f33247acc9924ff7733773bdda91001aeef3f1006f3fd5f54"
+      "bytes": 25284,
+      "sha256": "197b39465283c3a38a05ca25c8690ca6dd67a4764626b28812e6b3eeae8e78bf"
     },
     "website/app.js": {
-      "bytes": 5213,
-      "sha256": "a9e7b4acdaa5752ebd00a0e63b5167b3defde166e2d714dba565e60c499f22d9"
+      "bytes": 9263,
+      "sha256": "19d68486e7905295f148183c9a10397ee7525849af6fc86086172b5a1320aea6"
     },
     "website/assets/observed_river_data.js": {
       "bytes": 554402,
       "sha256": "d5431d0ba48f49d9823c28a03ee638dabbf0afb4bf7e93d0ab268489005e6974"
     },
     "website/index.html": {
-      "bytes": 36138,
-      "sha256": "3b0f2b8854fecd8bae94aa1b31b649c68c2253740a6be167de7d23d38db6f0ed"
+      "bytes": 34212,
+      "sha256": "2a7ee20e5abb5e0201d828945dfa0de9e23a9ba857320b17d07e707853130d45"
     },
     "website/styles.css": {
-      "bytes": 20853,
-      "sha256": "c967114e3563a671c2ac7483007cf26abd4ed84dcc3320881e045f79c069656a"
+      "bytes": 22951,
+      "sha256": "86ccf36858c43c29d4b7ba798f77120943311c28834b2c5fc36ac163f3bb7f0f"
     },
     "wrangler.toml": {
       "bytes": 166,

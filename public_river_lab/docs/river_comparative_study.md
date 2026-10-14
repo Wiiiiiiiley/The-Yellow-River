@@ -16,10 +16,6 @@ The Mississippi must be understood as a network of the main stem and its tributa
 
 The St. Louis station is downstream of the Missouri River confluence but upstream of the Ohio River confluence, so its record does not yet include Ohio River inflows.[9] The site's chart consequently describes two gauging stations, not the total discharge at the mouths of two rivers. Differences in the size and shape of their curves reflect basin coverage and station location. Ranking the rivers by water volume alone would mistake geographical differences for evidence of better or worse management.
 
-### Comparative Insight
-
-Compare the basins and stations before comparing the curves. The Yellow River highlights the coordination of limited water among regions and uses; the Mississippi highlights the combination of inflows within a large river network. Understanding water sources by region and coordinating upstream and downstream needs are useful lessons to share, but the other river's discharge targets are not directly transferable. Seasonal curves help formulate questions; they cannot, by themselves, prove that a particular engineering project caused a change.
-
 ## 2. Sediment and the Riverbed: Following Sediment from Source to Destination
 
 ### Yellow River
@@ -33,10 +29,6 @@ Erosion on the Loess Plateau and the historical buildup of the lower riverbed co
 Reservoir sediment trapping, bank protection, and channel engineering on the Mississippi have changed sediment transport and connections between the river and its floodplain. A stable channel can serve navigation and riverside land uses, while potentially reducing sediment replenishment of the delta and wetlands.[6] Engineering benefits and the consequences of altered sediment delivery do not necessarily occur in the same place.
 
 At the river mouth, sediment is not simply material to be removed: it can also sustain land and habitat. “Moving water safely through the channel” and “delivering sediment to places that need it” are different tasks. A navigable channel cannot stand in for a healthy delta. Understanding management outcomes requires examining both the function of local infrastructure and the exchange of material farther downstream.
-
-### Comparative Insight
-
-The two rivers cannot simply be described as “one needs less sediment, the other needs more.” More useful questions are where sediment originates, which routes it takes, and where it settles. Which areas experience deposition, and which lack replenishment? Management goals should vary with the function of each reach while tracing connections between upstream benefits and downstream costs.
 
 ## 3. Dams and Hydropower: From a List of Functions to Conflicting Objectives
 
@@ -52,10 +44,6 @@ Navigation locks and dams on the Upper Mississippi primarily maintain navigable 
 
 The engineering system should be distinguished from the appearance of an individual dam. Storage and releases in upstream reservoirs affect downstream needs, while navigation locks and dams serve a different set of water-level requirements. Before comparing an operating practice, check what the infrastructure can regulate, what it must prioritize, and whether inflow conditions allow it. Installed generating capacity or the number of structures alone cannot explain the system's overall role.
 
-### Comparative Insight
-
-Check purpose, storage capacity, and operating rules before borrowing a practice. Negotiating multiple objectives and coordinating upstream and downstream interests are valuable lessons; dam types, release rhythms, and single-benefit measures are not directly transferable. Hydropower benefits, channel safety, and ecological connections belong within the same discussion of trade-offs.
-
 ## 4. Flood Management: Controlling Floodwater and Understanding Who Bears the Risk
 
 ### Yellow River
@@ -69,10 +57,6 @@ Social analysis should then ask whether protection extends beyond buildings and 
 The Lower Mississippi's Mississippi River and Tributaries (MR&T) system combines levees, floodways, channel improvement and stabilization, and tributary-basin projects.[7] Floodways show that flood management assigns routes for water across different spaces; it does not make floods disappear. Evaluating protection in one area also requires understanding that area's position within the larger system.
 
 Flood-protection benefits and risk burdens therefore need separate examination. Engineering can reduce risk under certain flood conditions, but it does not automatically resolve how to respond beyond design conditions or replace community preparedness. Coordinating floodplain ecological connections, land uses, and resident safety matters to the long-term coexistence of infrastructure and riverside societies. Withstanding one flood does not mean that risk has disappeared across all timescales.
-
-### Comparative Insight
-
-Move from “controlling floods” to “managing risk.” Both rivers require joint assessment of infrastructure, channel change, floodplain space, and community capacity. The comparison should also ask whether protection benefits and risk burdens fall on the same people. Neither a country nor an entire river should be treated as a single, internally uniform case.
 
 ## 5. Water Resources and Ecology: Allocating Water and Maintaining Basin Connections
 
@@ -88,10 +72,6 @@ Nutrients from agriculture, urban runoff, wastewater, and other sources travel t
 
 Treating consequences downstream cannot replace understanding upstream sources. This also shows why higher average discharge does not mean lower ecological management pressure. Coordinating navigation, water supply, wetlands, and coastal ecology requires considering water quality, sediment, and habitat connections. Restricting the question to the channel would overlook land use and cumulative effects across regions.
 
-### Comparative Insight
-
-The rivers face different constraints but share a logic of integrated management: connect upstream activities with downstream consequences. Water allocation on the Yellow River and the Mississippi's basin-to-coast perspective can help each case generate more complete questions. Neither approach can be applied directly without considering local institutions, land use, and ecological conditions.
-
 ## 6. Riverside Life and Local Societies: Who Works and Lives Along the River?
 
 ### Yellow River
@@ -106,10 +86,6 @@ The Mississippi's human history cannot begin with steamboats or European settlem
 
 Later, steamboats and ports connected agricultural hinterlands, riverside towns, and trade networks. Commodity production on lower-river plantations, and some supplies of fuel for vessels, were also tied to enslaved labor.[18] Prosperity therefore did not imply an equal distribution of benefits. Comparing riverside economies requires asking who controlled land and commodities, who supplied labor, and who received the returns—not only describing transport efficiency or the growth of towns.
 
-### Comparative Insight
-
-Avoid reducing the comparison to “agriculture on the Yellow River, commerce on the Mississippi.” Both rivers connect production, exchange, and communities, through different histories. Follow how technology changes livelihoods, how local knowledge survives, and whether broad development narratives hear the voices of different residents. Humanities research can also inform management analysis: whose lives are being protected, and whose relationships to land are being changed?
-
 ## 7. Cultural Significance and Shared Memory: How Does a River Become More Than Geography?
 
 ### Yellow River
@@ -123,10 +99,6 @@ The *Yellow River Cantata*, written and first performed in Yan'an in 1939, broug
 The Mississippi has a place in American literature and music, but no single interpretation is shared by every community. Mark Twain's *Adventures of Huckleberry Finn* is more than a river adventure. Jim's escape from enslavement places freedom, race, and moral judgment at the center of the story, while the work's language and characterization continue to provoke debate.[19] Cultural significance does not mean unanimous celebration; the river can also be a setting for social reflection.
 
 Delta blues brought African American life experiences into a wider musical culture. Here, the Mississippi Delta primarily means the alluvial plain between the Memphis and Vicksburg areas, not the delta at the river's mouth. The music is connected to histories such as sharecropping and racial segregation, and spread through migration and networks of rivers, railways, and roads.[20] This reflects the active creativity of musicians and communities. It should not be portrayed as music inevitably “produced” by poverty or the natural environment.
-
-### Comparative Insight
-
-Both rivers carry cultural expressions of home, labor, suffering, and hope, but they cannot simply be reduced to “civilization on the Yellow River, freedom on the Mississippi.” More meaningful questions are which experiences enter the canon, who gets to tell the river's story, and which places and communities still need their memories to be heard. Bringing national narratives into conversation with riverside lives reveals how rivers connect societies while also carrying histories of inequality, migration, and identity.
 
 ## Bringing the Comparison Together: What Travels Is a Way of Understanding Problems
 
